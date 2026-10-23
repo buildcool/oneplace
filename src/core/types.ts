@@ -159,4 +159,6 @@ export interface JobRequest extends JobTemplate {
   httpUrls?: string[];
   imageFormat?: ImageFormat;
   crop?: 'square';
+  /** Size shown in the sheet, so the phone can check free space first. */
+  expectedBytes?: number;
 }

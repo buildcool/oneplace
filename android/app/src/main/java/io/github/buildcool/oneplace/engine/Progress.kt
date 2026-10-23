@@ -62,7 +62,7 @@ class Progress(private val streams: Int) {
         val done = p.getOrNull(0)?.toDoubleOrNull() ?: return false
         val total = p.getOrNull(1)?.toDoubleOrNull()
         val bps = p.getOrNull(2)?.toDoubleOrNull()
-        eta = p.getOrNull(3)?.toDoubleOrNull()?.toLong() ?: -1
+        eta = p.getOrNull(3)?.toDoubleOrNull()?.toLong() ?: -1L
         speed = bps?.let(::speedText)
         if (total != null && total > 0) percent = overall((done / total).coerceIn(0.0, 1.0))
         return true

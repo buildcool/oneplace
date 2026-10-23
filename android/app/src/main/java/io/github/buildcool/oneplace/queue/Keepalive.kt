@@ -83,7 +83,7 @@ class DownloadJobService : JobService() {
             val info = JobInfo.Builder(JOB_ID, ComponentName(ctx, DownloadJobService::class.java))
                 .setUserInitiated(true)
                 .setRequiredNetwork(network)
-                .setEstimatedNetworkBytes(JobInfo.NETWORK_BYTES_UNKNOWN, JobInfo.NETWORK_BYTES_UNKNOWN)
+                .setEstimatedNetworkBytes(JobInfo.NETWORK_BYTES_UNKNOWN.toLong(), JobInfo.NETWORK_BYTES_UNKNOWN.toLong())
                 .build()
             js.schedule(info) == JobScheduler.RESULT_SUCCESS
         } catch (e: Exception) {

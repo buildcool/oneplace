@@ -173,7 +173,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
       const spec: DownloadSpec = isPlaylist
         ? videoSpec({ ...settings, compat }, { playlist: true, playlistEnd: plEnd, maxRes: plRes === 'best' ? undefined : plRes })
         : { mode: 'video', formatId: vOpt?.formatSel, compat, maxRes: vOpt?.res || undefined };
-      req = buildRequest({ link: l, engine: 'ytdlp', spec, title, thumb });
+      req = buildRequest({ link: l, engine: 'ytdlp', spec, title, thumb, expectedBytes: isPlaylist ? undefined : vOpt?.size });
     } else if (tab === 'audio') {
       const fmt = aKey === 'original' ? 'original' : aKey === 'm4a' ? 'm4a' : 'mp3';
       const spec = audioSpec(settings, {
@@ -182,7 +182,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
         embedCover: cover,
         ...(isPlaylist ? { playlist: true, playlistEnd: plEnd } : {}),
       });
-      req = buildRequest({ link: l, engine: 'ytdlp', spec, title, thumb });
+      req = buildRequest({ link: l, engine: 'ytdlp', spec, title, thumb, expectedBytes: isPlaylist ? undefined : aOpt?.size });
     } else if (tab === 'photos') {
       const all = gallery && picked.size === gallery.items.length;
       req = buildRequest({

@@ -41,6 +41,7 @@ object HttpJob {
     }
 
     /** Re-encode to JPG/PNG/WebP and/or crop to a centred square. "original" keeps the bytes as they are. */
+    @Suppress("DEPRECATION") // CompressFormat.WEBP: the lossy/lossless variants need Android 11
     private fun convert(file: File, format: String?, square: Boolean) {
         val target = when (format) {
             "jpg" -> "jpg"
@@ -59,7 +60,6 @@ object HttpJob {
         val out = File(file.parentFile, file.nameWithoutExtension + "." + ext)
         val fmt = when (ext) {
             "png" -> Bitmap.CompressFormat.PNG
-            @Suppress("DEPRECATION")
             "webp" -> Bitmap.CompressFormat.WEBP
             else -> Bitmap.CompressFormat.JPEG
         }

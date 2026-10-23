@@ -82,7 +82,7 @@ class LoginActivity : AppCompatActivity() {
                 if (web.canGoBack()) web.goBack() else finishOk()
             }
         })
-        intent.getStringExtra("url")?.let(web::loadUrl)
+        intent.getStringExtra("url")?.let { web.loadUrl(it) }
     }
 
     private fun finishOk() {

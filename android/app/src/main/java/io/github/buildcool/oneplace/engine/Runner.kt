@@ -4,9 +4,9 @@ import android.content.Context
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -87,9 +87,6 @@ object Runner {
             old.killed = true
             old.process.destroy()
         }
-        val handle = currentCoroutineContext()[kotlinx.coroutines.Job]?.invokeOnCompletion { cause ->
-            if (cause is CancellationException) kill(id)
-        }
         val err = StringBuilder()
         val errThread = thread(name = "op-stderr-$id") {
             runCatching {
@@ -102,6 +99,14 @@ object Runner {
             }
         }
         val out = StringBuilder()
+        // If the caller is cancelled, stop the process too (the read loop below cannot notice cancellation).
+        val watcher = launch {
+            try {
+                awaitCancellation()
+            } finally {
+                if (running[id] === r) kill(id)
+            }
+        }
         try {
             val reader = process.inputStream.bufferedReader()
             val line = StringBuilder()
@@ -127,8 +132,9 @@ object Runner {
             errThread.join(2000)
             Result(if (r.killed) -9 else code, out.toString(), synchronized(err) { err.toString() }, System.currentTimeMillis() - started)
         } finally {
-            handle?.dispose()
+            // Unregister first so the watcher does not signal a pid that may already be reused.
             running.remove(id, r)
+            watcher.cancel()
         }
     }
 

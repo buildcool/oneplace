@@ -1,6 +1,7 @@
 package io.github.buildcool.oneplace.queue
 
 import android.content.Context
+import android.os.StatFs
 import io.github.buildcool.oneplace.Config
 import io.github.buildcool.oneplace.engine.Engines
 import io.github.buildcool.oneplace.engine.Progress
@@ -143,6 +144,10 @@ object Queue {
         if (Config.autoEngineUpdate(ctx) && Engines.olderThan(Engines.ytdlpVersion(ctx), Config.minYtDlp(ctx))) {
             runCatching { Engines.updateYtDlp(ctx) }
         }
+        // Downloading, merging and copying into shared storage briefly needs about twice the file size.
+        val free = StatFs(ctx.cacheDir.path).availableBytes
+        val need = if (job.expectedBytes > 0) job.expectedBytes * 2 + (50L shl 20) else 100L shl 20
+        if (free < need) return fail(ctx, job, "No space left on device: about ${need shr 20} MB needed, ${free shr 20} MB free")
         val dir = File(ctx.cacheDir, "jobs/${job.id}")
         fun out() = File(dir, if (job.usedFallback) "b" else "a")
         var res = execute(ctx, job, job.template, out())

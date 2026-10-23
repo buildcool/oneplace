@@ -37,6 +37,8 @@ class Job(
     val httpUrls: List<String>,
     val imageFormat: String?,
     val crop: String?,
+    /** Size the sheet showed (0 = unknown), for the free-space check. */
+    val expectedBytes: Long = 0,
     var status: String = "queued",
     var progress: Double = -1.0,
     var eta: Long = -1,
@@ -82,6 +84,7 @@ class Job(
         .put("httpUrls", JSONArray(httpUrls))
         .put("imageFormat", imageFormat ?: JSONObject.NULL)
         .put("crop", crop ?: JSONObject.NULL)
+        .put("expectedBytes", expectedBytes)
         .put("usedFallback", usedFallback)
         .put("healed", healed)
         .put("titleFromFile", titleFromFile)
@@ -101,6 +104,7 @@ class Job(
             httpUrls = o.optJSONArray("httpUrls").strings(),
             imageFormat = o.str("imageFormat"),
             crop = o.str("crop"),
+            expectedBytes = o.optLong("expectedBytes"),
             status = o.optString("status", "queued"),
             progress = o.optDouble("progress", -1.0),
             eta = o.optLong("eta", -1),
@@ -132,6 +136,7 @@ class Job(
                 httpUrls = r.optJSONArray("httpUrls").strings(),
                 imageFormat = r.str("imageFormat"),
                 crop = r.str("crop"),
+                expectedBytes = r.optLong("expectedBytes"),
                 titleFromFile = title == url || r.optBoolean("titleFromFile"),
             )
         }
