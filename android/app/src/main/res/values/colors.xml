@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#5B4CF0</color>
+    <color name="colorPrimaryDark">#3E31C9</color>
+    <color name="colorAccent">#A855F7</color>
+    <color name="brand">#5B4CF0</color>
+    <color name="brand_2">#A855F7</color>
+    <color name="splash_bg">#F5F5FA</color>
+    <color name="bar_bg">#F5F5FA</color>
+    <color name="bar_text">#16152A</color>
+</resources>

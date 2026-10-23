@@ -1,0 +1,12 @@
+{
+  "_type": "playlist",
+  "id": "PLx",
+  "title": "My playlist",
+  "uploader": "Someone",
+  "playlist_count": 3,
+  "entries": [
+    { "_type": "url", "id": "aaaaaaaaaaa", "title": "One", "url": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "duration": 100 },
+    { "_type": "url", "id": "bbbbbbbbbbb", "title": "Two", "url": "https://www.youtube.com/watch?v=bbbbbbbbbbb" },
+    null
+  ]
+}

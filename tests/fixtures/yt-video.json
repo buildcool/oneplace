@@ -1,0 +1,32 @@
+{
+  "_type": "video",
+  "id": "dQw4w9WgXcQ",
+  "title": "Rick Astley - Never Gonna Give You Up (Official Video)",
+  "uploader": "Rick Astley",
+  "channel": "Rick Astley",
+  "duration": 213,
+  "thumbnail": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp",
+  "thumbnails": [
+    { "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg", "width": 120, "height": 90, "preference": -11, "id": "0" },
+    { "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", "width": 480, "height": 360, "preference": -7, "id": "1" },
+    { "url": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp", "width": 1280, "height": 720, "preference": -1, "id": "2" }
+  ],
+  "webpage_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "formats": [
+    { "format_id": "sb0", "ext": "mhtml", "vcodec": "none", "acodec": "none", "format_note": "storyboard", "protocol": "mhtml", "width": 320, "height": 180 },
+    { "format_id": "139", "ext": "m4a", "vcodec": "none", "acodec": "mp4a.40.5", "abr": 48.8, "filesize": 1300000 },
+    { "format_id": "140", "ext": "m4a", "vcodec": "none", "acodec": "mp4a.40.2", "abr": 129.5, "filesize": 3450000, "language_preference": -1 },
+    { "format_id": "251-drc", "ext": "webm", "vcodec": "none", "acodec": "opus", "abr": 140, "filesize": 3600000 },
+    { "format_id": "251", "ext": "webm", "vcodec": "none", "acodec": "opus", "abr": 135.2, "filesize": 3560000, "language_preference": -1 },
+    { "format_id": "18", "ext": "mp4", "vcodec": "avc1.42001E", "acodec": "mp4a.40.2", "width": 640, "height": 360, "fps": 25, "tbr": 500, "filesize_approx": 13300000 },
+    { "format_id": "134", "ext": "mp4", "vcodec": "avc1.4d401e", "acodec": "none", "width": 640, "height": 360, "fps": 25, "tbr": 300, "filesize": 7000000 },
+    { "format_id": "136", "ext": "mp4", "vcodec": "avc1.4d401f", "acodec": "none", "width": 1280, "height": 720, "fps": 25, "tbr": 1500, "filesize": 40000000 },
+    { "format_id": "247", "ext": "webm", "vcodec": "vp9", "acodec": "none", "width": 1280, "height": 720, "fps": 25, "tbr": 1200, "filesize": 32000000 },
+    { "format_id": "137", "ext": "mp4", "vcodec": "avc1.640028", "acodec": "none", "width": 1920, "height": 1080, "fps": 25, "tbr": 4000, "filesize": 100000000 },
+    { "format_id": "248", "ext": "webm", "vcodec": "vp9", "acodec": "none", "width": 1920, "height": 1080, "fps": 25, "tbr": 2600, "filesize": 70000000 },
+    { "format_id": "399", "ext": "mp4", "vcodec": "av01.0.08M.08", "acodec": "none", "width": 1920, "height": 1080, "fps": 25, "tbr": 2000, "filesize": 52000000 },
+    { "format_id": "303", "ext": "webm", "vcodec": "vp9", "acodec": "none", "width": 1920, "height": 1080, "fps": 50, "tbr": 4500, "filesize_approx": 120000000 },
+    { "format_id": "313", "ext": "webm", "vcodec": "vp9", "acodec": "none", "width": 3840, "height": 2160, "fps": 25, "tbr": 16000, "filesize": 410000000 },
+    { "format_id": "401", "ext": "mp4", "vcodec": "av01.0.12M.08", "acodec": "none", "width": 3840, "height": 2160, "fps": 25, "tbr": 12000, "filesize": 320000000 }
+  ]
+}

@@ -1,0 +1,104 @@
+name: Build APK
+
+# Builds OnePlace on GitHub's free runners (no laptop needed) and publishes the APKs as a GitHub
+# Release. The app checks these releases and updates itself.
+#
+# Every push to main → a release ("stable" unless the repo variable PUSH_RELEASES is "beta").
+# Actions → Build APK → Run workflow lets you pick beta/stable by hand.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['config/**', '**.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Release channel'
+        type: choice
+        options: [stable, beta]
+        default: stable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run cap -- sync android
+
+      - name: Bundle gallery-dl into the APK
+        run: sh scripts/build-gdl.sh
+
+      - name: Write signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+            echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+          else
+            echo "::warning::SIGNING_KEYSTORE_BASE64 secret not set - using a throwaway debug key (updates will need uninstall)."
+            echo "SIGNING_KEYSTORE=$RUNNER_TEMP/none.p12" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APKs (one per CPU type + universal)
+        working-directory: android
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+          mkdir -p "$RUNNER_TEMP/apk"
+          for f in app/build/outputs/apk/release/*.apk; do
+            abi=$(basename "$f" .apk | sed -e 's/^app-//' -e 's/-release$//')
+            cp "$f" "$RUNNER_TEMP/apk/OnePlace-$abi.apk"
+          done
+          ls -la "$RUNNER_TEMP/apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OnePlace-apks
+          path: ${{ runner.temp }}/apk/*.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || vars.PUSH_RELEASES || 'stable' }}
+        run: |
+          version="1.0.${{ github.run_number }}"
+          {
+            echo "**Which file?** Most phones: \`OnePlace-arm64-v8a.apk\`. Old/cheap phones: \`OnePlace-armeabi-v7a.apk\`. Not sure: \`OnePlace-universal.apk\`."
+            echo "Already installed? The app updates itself (More → App updates)."
+            echo
+            if [ -f release-notes.md ]; then cat release-notes.md; fi
+          } > "$RUNNER_TEMP/notes.md"
+          if [ "$CHANNEL" = "beta" ]; then flag="--prerelease"; else flag="--latest"; fi
+          gh release create "v$version" "$RUNNER_TEMP"/apk/*.apk \
+            --title "OnePlace $version$( [ "$CHANNEL" = beta ] && echo " (beta)" )" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            $flag

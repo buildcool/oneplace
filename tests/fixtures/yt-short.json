@@ -1,0 +1,10 @@
+{
+  "id": "abcDEF12345",
+  "title": "Short clip",
+  "duration": 30,
+  "formats": [
+    { "format_id": "140", "ext": "m4a", "vcodec": "none", "acodec": "mp4a.40.2", "abr": 128, "filesize": 480000 },
+    { "format_id": "137", "ext": "mp4", "vcodec": "avc1.640028", "acodec": "none", "width": 1080, "height": 1920, "fps": 30, "tbr": 3000, "filesize": 11000000 },
+    { "format_id": "136", "ext": "mp4", "vcodec": "avc1.4d401f", "acodec": "none", "width": 720, "height": 1280, "fps": 30, "tbr": 1500, "filesize": 5600000 }
+  ]
+}

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="process_text">OnePlace से डाउनलोड</string>
+    <string name="quick_video">OnePlace · वीडियो</string>
+    <string name="quick_audio">OnePlace · MP3</string>
+    <string name="quick_thumb">OnePlace · थंबनेल</string>
+    <string name="login_done">हो गया</string>
+</resources>
