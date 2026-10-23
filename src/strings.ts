@@ -226,6 +226,12 @@ const S = {
   'set.loggedIn': ['Logged in · tap to log out', 'Logged in · logout ke liye tap', 'लॉग इन · लॉग आउट के लिए टैप करें'],
   'set.logIn': ['Log in', 'Login karo', 'लॉगिन करें'],
   'set.loggedOut': ['Logged out of {site}', '{site} se logout hua', '{site} से लॉग आउट हुआ'],
+  'set.loggedInOk': ['Logged in to {site}', '{site} mein login ho gaya', '{site} में लॉग इन हो गया'],
+  'set.loginMissing': [
+    'No {site} login found. Log in on the page, then tap Done.',
+    '{site} login nahi mila. Page par login karke Done dabao.',
+    '{site} लॉगिन नहीं मिला। पेज पर लॉग इन करके Done दबाएँ।',
+  ],
   'set.googleNote': [
     'Google may block sign-in inside apps. Most YouTube videos work without it.',
     'Google apps ke andar sign-in block kar sakta hai. Zyada YouTube videos bina login chalte hain.',

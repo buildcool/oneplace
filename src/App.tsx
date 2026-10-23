@@ -27,7 +27,8 @@ import { UpdateSheet } from './ui/UpdateSheet.tsx';
 
 type Tab = 'home' | 'downloads' | 'library' | 'more';
 const native = Capacitor.isNativePlatform();
-const BATTERY_MAKERS = /xiaomi|redmi|poco|oppo|realme|vivo|iqoo|oneplus|huawei|honor|samsung|tecno|infinix|itel|motorola/i;
+/** Pixels rarely kill background work; every other maker (Xiaomi, Oppo, Vivo, Realme, Samsung, Lava…) may. */
+const PIXEL = /^google$/i;
 
 function upsert(list: Job[], j: Job): Job[] {
   const i = list.findIndex((x) => x.id === j.id);
@@ -245,8 +246,9 @@ export default function App() {
   const login = async (site: string) => {
     const s = SITES[site as SiteId];
     if (!s?.login) return;
-    await engine.login({ site, url: s.login, cookieUrls: s.cookieUrls ?? [s.login], title: s.name }).catch(() => undefined);
+    const r = await engine.login({ site, url: s.login, cookieUrls: s.cookieUrls ?? [s.login], title: s.name }).catch(() => ({ saved: false }));
     setSessions(await engine.sessions().catch(() => []));
+    if (native) say(r.saved ? t('set.loggedInOk', { site: s.name }) : t('set.loginMissing', { site: s.name }));
   };
 
   const logout = async (site: SiteId) => {
@@ -471,7 +473,7 @@ export default function App() {
         <Onboarding
           onDone={() => update({ onboarded: true })}
           onNotifications={async () => setNotif(await engine.requestNotifications().catch(() => false))}
-          onBattery={status && BATTERY_MAKERS.test(status.maker) ? () => void engine.openBatterySettings() : undefined}
+          onBattery={status && !PIXEL.test(status.maker) ? () => void engine.openBatterySettings() : undefined}
         />
       ) : null}
     </LangContext.Provider>

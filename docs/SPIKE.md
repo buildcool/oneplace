@@ -21,7 +21,7 @@ Open **More → Engine test**, paste each link, run, then **Copy results** and p
 
 | Test | Result |
 |---|---|
-| APK size (arm64-v8a) | |
+| APK size (arm64-v8a) | 61.2 MB (armeabi-v7a 54.3 MB, x86_64 64 MB, universal 214 MB) — v1.0.2 |
 | First start ("Preparing engine…") | |
 | YouTube video info | |
 | YouTube Short | |
