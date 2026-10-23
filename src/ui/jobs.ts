@@ -17,11 +17,11 @@ export function jobIcon(j: Pick<Job, 'mode' | 'dest'>): IconName {
 export function jobLine(j: Job, t: T): string {
   switch (j.status) {
     case 'queued':
-      return t('st.queued');
+      return j.line || t('st.queued');
     case 'paused':
       return t('st.paused');
     case 'running': {
-      if (j.progress < 0) return t('st.starting');
+      if (j.progress < 0) return j.line && !POSTPROCESS.test(j.line) ? j.line : t('st.starting');
       if (j.progress >= 99.5 || POSTPROCESS.test(j.line ?? '')) return t('st.processing');
       return [`${Math.round(j.progress)}%`, j.speed, j.eta > 0 ? t('st.left', { time: duration(j.eta) }) : ''].filter(Boolean).join(' · ');
     }

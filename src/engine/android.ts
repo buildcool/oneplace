@@ -33,6 +33,7 @@ interface EnginePlugin {
   requestNotifications(): Promise<{ value: boolean }>;
   systemColors(): Promise<{ light?: string; dark?: string }>;
   pendingShare(): Promise<{ text?: string }>;
+  debug(): Promise<Record<string, unknown>>;
   addListener(event: 'job', cb: (d: { json: string }) => void): Promise<PluginListenerHandle>;
   addListener(event: 'shared', cb: (d: { text: string }) => void): Promise<PluginListenerHandle>;
   addListener(event: 'updateProgress', cb: (d: UpdateProgress) => void): Promise<PluginListenerHandle>;
@@ -80,6 +81,7 @@ export const androidEngine: Engine = {
   requestNotifications: async () => (await P.requestNotifications()).value,
   systemColors: () => P.systemColors(),
   pendingShare: async () => (await P.pendingShare()).text || undefined,
+  debug: () => P.debug(),
   onJob: (cb) => listen(() => P.addListener('job', (d) => cb(JSON.parse(d.json) as Job))),
   onShared: (cb) => listen(() => P.addListener('shared', (d) => cb(d.text))),
   onUpdateProgress: (cb) => listen(() => P.addListener('updateProgress', cb)),

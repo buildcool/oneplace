@@ -1,6 +1,6 @@
 import { Clipboard } from '@capacitor/clipboard';
 import { Capacitor } from '@capacitor/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { parseGallery, parseJson, parseYtInfo, type YtInfo } from '../core/formats.ts';
 import { infoArgs } from '../core/info.ts';
 import { detect, findUrls } from '../core/links.ts';
@@ -121,6 +121,17 @@ export function TestPage({ onBack, status }: { onBack: () => void; status?: Engi
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<TestLine[]>([]);
+  const [queue, setQueue] = useState<Record<string, unknown>>();
+  useEffect(() => {
+    const read = () =>
+      engine
+        .debug()
+        .then(setQueue)
+        .catch(() => {});
+    read();
+    const id = setInterval(read, 2000);
+    return () => clearInterval(id);
+  }, []);
 
   async function run() {
     const u = findUrls(url)[0];
@@ -168,6 +179,7 @@ export function TestPage({ onBack, status }: { onBack: () => void; status?: Engi
       `OnePlace ${status?.appVersion} · SDK ${status?.sdk} · ${status?.abis.join(',')} · ${status?.maker}`,
       `yt-dlp ${status?.ytdlp} · gallery-dl ${status?.gallerydl}`,
       `site ${detect(findUrls(url)[0] ?? '').site}`,
+      `queue ${JSON.stringify(queue ?? {})}`,
       ...lines.map((l) => `${l.ok ? 'OK ' : 'ERR'} ${l.label} ${(l.ms / 1000).toFixed(1)}s ${l.detail}`),
     ].join('\n');
 
@@ -188,6 +200,7 @@ export function TestPage({ onBack, status }: { onBack: () => void; status?: Engi
           {`SDK ${status.sdk} · ${status.abis.join(', ')} · ${status.maker}\nyt-dlp ${status.ytdlp ?? '?'} · gallery-dl ${status.gallerydl ?? '?'}`}
         </p>
       ) : null}
+      {queue ? <p className="mono muted">{'queue ' + JSON.stringify(queue, null, 1).replace(/[{}"]/g, '').trim()}</p> : null}
       {lines.length ? (
         <div className="card group" style={{ marginTop: 12 }}>
           {lines.map((l, i) => (

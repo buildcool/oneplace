@@ -65,9 +65,10 @@ export function newest(releases: GhRelease[], channel: 'stable' | 'beta', build:
 }
 
 const KEY = 'op.update';
-const DAY = 24 * 60 * 60 * 1000;
+/** How long a GitHub answer is reused (GitHub allows 60 unauthenticated checks an hour). */
+const TTL = 3 * 60 * 60 * 1000;
 
-/** Checks GitHub at most once a day unless forced. GitHub's API allows browser (CORS) requests. */
+/** Checks GitHub at most every 3 hours unless forced. GitHub's API allows browser (CORS) requests. */
 export async function checkForUpdate(o: {
   build: number;
   channel: 'stable' | 'beta';
@@ -83,7 +84,7 @@ export async function checkForUpdate(o: {
     cached = undefined;
   }
   let releases = cached?.channel === o.channel ? cached.releases : undefined;
-  if (o.force || !releases || Date.now() - (cached?.at ?? 0) > DAY) {
+  if (o.force || !releases || Date.now() - (cached?.at ?? 0) > TTL) {
     const res = await (o.fetchFn ?? fetch)(`https://api.github.com/repos/${REPO}/releases?per_page=10`, {
       headers: { Accept: 'application/vnd.github+json' },
     });

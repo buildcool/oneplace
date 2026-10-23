@@ -25,7 +25,10 @@ import io.github.buildcool.oneplace.engine.Engines
 import io.github.buildcool.oneplace.engine.Net
 import io.github.buildcool.oneplace.login.Cookies
 import io.github.buildcool.oneplace.login.LoginActivity
+import io.github.buildcool.oneplace.queue.DownloadJobService
+import io.github.buildcool.oneplace.queue.DownloadService
 import io.github.buildcool.oneplace.queue.JobStore
+import io.github.buildcool.oneplace.queue.Keepalive
 import io.github.buildcool.oneplace.queue.Queue
 import io.github.buildcool.oneplace.storage.Saver
 import io.github.buildcool.oneplace.update.AppUpdater
@@ -332,6 +335,26 @@ class EnginePlugin : Plugin() {
     }
 
     private fun hex(color: Int) = String.format(Locale.US, "#%06X", 0xFFFFFF and color)
+
+    /** Queue and keep-alive state, shown on the engine test page to explain stuck downloads. */
+    @PluginMethod
+    fun debug(call: PluginCall) {
+        val active = JobStore.active()
+        val o = JSObject()
+            .put("queueRunning", Queue.draining)
+            .put("held", Queue.held)
+            .put("queued", active.count { it.status == "queued" })
+            .put("running", active.count { it.status == "running" })
+            .put("serviceActive", DownloadService.active)
+            .put("wifiOnly", Config.wifiOnly(app))
+            .put("unmetered", Keepalive.unmetered(app))
+            .put("notifications", NotificationManagerCompat.from(app).areNotificationsEnabled())
+        if (Build.VERSION.SDK_INT >= 34) {
+            o.put("userJobActive", DownloadJobService.active)
+            o.put("userJobPending", DownloadJobService.pending(app))
+        }
+        call.resolve(o)
+    }
 
     @PluginMethod
     fun pendingShare(call: PluginCall) {

@@ -16,8 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
@@ -30,8 +30,15 @@ import org.json.JSONObject
 object Queue {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val wake = Channel<Unit>(Channel.CONFLATED)
-    private val drainLock = Mutex()
     private val runs = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
+    /** True while the queue loop runs. Keep-alive services wait for it to turn false. */
+    private val busy = MutableStateFlow(false)
+
+    /** Set when Android stops our keep-alive (time limit, lost network): stop until start() is called again. */
+    @Volatile
+    var held = false
+        private set
     private val lastEmit = ConcurrentHashMap<String, Long>()
     private val lastSave = ConcurrentHashMap<String, Long>()
 
@@ -42,9 +49,7 @@ object Queue {
     @Volatile
     var listener: ((Job) -> Unit)? = null
 
-    @Volatile
-    var draining = false
-        private set
+    val draining: Boolean get() = busy.value
 
     private val NO_VIDEO = Regex("There is no video in this post|No video could be found|No video formats found|no media found", RegexOption.IGNORE_CASE)
 
@@ -86,52 +91,78 @@ object Queue {
         return job
     }
 
-    /** Make sure something drains the queue. */
+    /**
+     * Run the queue now, in this process, and ask Android to keep the app alive while it works
+     * (user-initiated job on Android 14+, foreground service before). Downloads never wait for the
+     * keep-alive to start: if Android delays it, they still run while OnePlace is open.
+     */
     fun start(ctx: Context) {
+        val app = ctx.applicationContext
+        held = false
         wake.trySend(Unit)
-        if (draining) return
-        Keepalive.start(ctx.applicationContext)
+        if (busy.compareAndSet(false, true)) {
+            scope.launch {
+                try {
+                    loop(app)
+                } finally {
+                    busy.value = false
+                    Notifier.clearSummary(app)
+                    // Something was queued while the loop was finishing: go again.
+                    if (!held && JobStore.nextQueued() != null && !(Config.wifiOnly(app) && !Keepalive.unmetered(app))) start(app)
+                }
+            }
+        }
+        Keepalive.ensure(app)
     }
 
-    /** Runs until the queue is empty. Called by the user-initiated job / foreground service. */
-    suspend fun drain(ctx: Context) = drainLock.withLock {
-        draining = true
-        try {
-            while (true) {
-                var waitingForWifi = false
-                while (runs.size < Config.concurrency(ctx)) {
-                    val next = JobStore.nextQueued() ?: break
-                    if (Config.wifiOnly(ctx) && !Keepalive.unmetered(ctx)) {
-                        waitingForWifi = true
-                        break
+    /** Keep-alive services wait here until there is nothing left to download. */
+    suspend fun awaitIdle() {
+        busy.first { !it }
+    }
+
+    /** Android is stopping our keep-alive: stop downloads (they stay queued and resume on the next start). */
+    fun hold(ctx: Context) {
+        held = true
+        pauseRunning(ctx)
+        wake.trySend(Unit)
+    }
+
+    private suspend fun loop(ctx: Context) {
+        while (true) {
+            var waitingForWifi = false
+            while (!held && runs.size < Config.concurrency(ctx)) {
+                val next = JobStore.nextQueued() ?: break
+                if (Config.wifiOnly(ctx) && !Keepalive.unmetered(ctx)) {
+                    waitingForWifi = true
+                    JobStore.active().filter { it.status == "queued" }.forEach {
+                        it.line = Config.text(ctx, "waitingWifi", "Waiting for Wi-Fi")
+                        emit(it, true)
                     }
-                    next.status = "running"
-                    next.progress = -1.0
-                    next.error = null
-                    next.line = null
-                    JobStore.save(next)
-                    emit(next, true)
-                    runs[next.id] = scope.launch {
-                        try {
-                            runJob(ctx, next)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
-                            fail(ctx, next, e.message ?: e.toString())
-                        } finally {
-                            runs.remove(next.id)
-                            wake.trySend(Unit)
-                        }
+                    break
+                }
+                next.status = "running"
+                next.progress = -1.0
+                next.error = null
+                next.line = null
+                JobStore.save(next)
+                emit(next, true)
+                runs[next.id] = scope.launch {
+                    try {
+                        runJob(ctx, next)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        fail(ctx, next, e.message ?: e.toString())
+                    } finally {
+                        runs.remove(next.id)
+                        wake.trySend(Unit)
                     }
                 }
-                Notifier.updateSummary(ctx)
-                // Nothing running: stop (jobs waiting for Wi-Fi start again when OnePlace is opened on Wi-Fi).
-                if (runs.isEmpty() && (waitingForWifi || JobStore.nextQueued() == null)) break
-                withTimeoutOrNull(5_000) { wake.receive() }
             }
-        } finally {
-            draining = false
-            Notifier.clearSummary(ctx)
+            Notifier.updateSummary(ctx)
+            // Nothing running: stop (Wi-Fi-only jobs start again when the app is opened on Wi-Fi).
+            if (runs.isEmpty() && (held || waitingForWifi || JobStore.nextQueued() == null)) break
+            withTimeoutOrNull(5_000) { wake.receive() }
         }
     }
 
@@ -140,7 +171,12 @@ object Queue {
     }
 
     private suspend fun runJob(ctx: Context, job: Job) {
+        if (!Engines.ready) {
+            job.line = Config.text(ctx, "preparing", "Getting the engine ready")
+            emit(job, true)
+        }
         Engines.ensureReady(ctx)
+        job.line = null
         if (Config.autoEngineUpdate(ctx) && Engines.olderThan(Engines.ytdlpVersion(ctx), Config.minYtDlp(ctx))) {
             runCatching { Engines.updateYtDlp(ctx) }
         }

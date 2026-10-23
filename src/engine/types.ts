@@ -77,6 +77,8 @@ export interface Engine {
   requestNotifications(): Promise<boolean>;
   /** Wallpaper colours (Android 12+). */
   systemColors(): Promise<{ light?: string; dark?: string }>;
+  /** Queue and keep-alive state (engine test page), to explain downloads that do not start. */
+  debug(): Promise<Record<string, unknown>>;
   /** Text shared to the app before the UI was ready (cold start from the share sheet). */
   pendingShare(): Promise<string | undefined>;
   onJob(cb: (job: Job) => void): () => void;

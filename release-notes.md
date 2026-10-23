@@ -1,10 +1,7 @@
-## OnePlace 1.0 (first build)
+## What's new
 
-- Share any link to OnePlace (or paste it) → pick quality → done. Video up to 4K/8K with file sizes, MP3/M4A/original audio with cover art and tags, photos and carousels, thumbnails in every size.
-- 1-tap share targets: **OnePlace · Video**, **OnePlace · MP3**, **OnePlace · Thumbnail**.
-- Downloads keep running with the app closed; progress in notifications.
-- Files go to Movies/OnePlace, Music/OnePlace and Pictures/OnePlace.
-- Engines (yt-dlp, gallery-dl) update themselves; the app updates itself from GitHub Releases.
-- Instagram photos, stories and highlights need a login: More → Site logins.
-- English, Hinglish, हिंदी. Dark mode, AMOLED black, wallpaper colours.
-- More → Engine test: check any link and copy the timings (please share them!).
+- **Fixed: downloads stuck on "Waiting…"** (Android 14+). Downloads now start right away; Android's background job only keeps them running after you close the app.
+- The Downloads list refreshes by itself while something is downloading, and says why a download waits (first-time engine set-up, waiting for Wi-Fi).
+- More → Engine test now shows the queue state; "Copy results" includes it.
+- Says whether an in-app login worked.
+- Update checks every 3 hours (More → App updates → Check now for instant).

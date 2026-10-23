@@ -288,6 +288,18 @@ export default function App() {
   };
 
   const activeCount = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length;
+
+  // While downloads are active, re-read the list every 2 s so the screen never shows a stale state.
+  useEffect(() => {
+    if (!activeCount) return;
+    const id = setInterval(() => {
+      engine
+        .jobs()
+        .then(setJobs)
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
+  }, [activeCount]);
   const announcement = remote.announcement && remote.announcement.id !== dismissedAnn ? remote.announcement : undefined;
 
   const nav: { id: Tab; icon: IconName; label: string; badge?: number }[] = [

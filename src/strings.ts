@@ -364,7 +364,12 @@ const S = {
   'n.retry': ['Retry', 'Retry', 'फिर से'],
   'n.added': ['Added to OnePlace', 'OnePlace mein add hua', 'OnePlace में जोड़ा'],
   'n.noLink': ['No link found in what you shared', 'Share kiye text mein link nahi mila', 'शेयर किए टेक्स्ट में लिंक नहीं मिला'],
-  'n.preparing': ['Getting the engine ready', 'Engine ready ho raha', 'इंजन तैयार हो रहा है'],
+  'n.preparing': [
+    'Getting the engine ready (first time only, up to a minute)',
+    'Engine ready ho raha (sirf pehli baar, ek minute tak)',
+    'इंजन तैयार हो रहा है (सिर्फ़ पहली बार, एक मिनट तक)',
+  ],
+  'n.waitingWifi': ['Waiting for Wi-Fi', 'Wi-Fi ka intezaar', 'वाई-फ़ाई का इंतज़ार'],
   'n.updatingEngine': ['Updating engine and trying again', 'Engine update karke phir try', 'इंजन अपडेट करके फिर कोशिश'],
 } satisfies Record<string, readonly [string, string, string]>;
 
