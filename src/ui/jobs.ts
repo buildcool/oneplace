@@ -26,7 +26,8 @@ export function jobLine(j: Job, t: T): string {
       return [`${Math.round(j.progress)}%`, j.speed, j.eta > 0 ? t('st.left', { time: duration(j.eta) }) : ''].filter(Boolean).join(' · ');
     }
     case 'done':
-      return [bytes(totalSize(j)), j.files.length > 1 ? `${j.files.length} files` : ''].filter(Boolean).join(' · ');
+      // A playlist where some videos failed (deleted, private…) still keeps the ones that worked.
+      return [bytes(totalSize(j)), j.files.length > 1 ? `${j.files.length} files` : '', j.error ? t('st.partial') : ''].filter(Boolean).join(' · ');
     case 'canceled':
       return t('err.canceled');
     case 'failed':

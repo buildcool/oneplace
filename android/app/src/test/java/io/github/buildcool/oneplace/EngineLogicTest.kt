@@ -40,6 +40,14 @@ class EngineLogicTest {
     }
 
     @Test
+    fun finishedFileLinesAreNotProgress() {
+        val p = Progress(1)
+        assertFalse(p.feed("[opfile] /x/001. Song.mp3"))
+        assertEquals(-1.0, p.percent, 0.0)
+        assertEquals("[opfile]", Progress.FILE_MARK)
+    }
+
+    @Test
     fun progressIgnoresUnknownSizes() {
         val p = Progress(1)
         p.feed("[op] 1000 NA 2000 NA")

@@ -47,7 +47,7 @@ export function JobMenu({ job, onClose, onOpen, onShare, onRetry, onRemove, onTo
       <div className="card group" style={{ marginBottom: 12 }}>
         {done ? item('play', t('act.open'), () => (onOpen(job), onClose())) : null}
         {done ? item('share', t('act.share'), () => (onShare(job), onClose())) : null}
-        {job.status === 'failed' || job.status === 'canceled' ? item('refresh', t('act.retry'), () => (onRetry(job), onClose())) : null}
+        {job.status === 'failed' || job.status === 'canceled' || (done && job.error) ? item('refresh', t('act.retry'), () => (onRetry(job), onClose())) : null}
         {item('external', t('act.source'), () => openExternal(job.url))}
         {item('copy', t('act.copyLink'), async () => {
           if (Capacitor.isNativePlatform()) await Clipboard.write({ string: job.url });

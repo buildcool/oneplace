@@ -169,6 +169,7 @@ const S = {
   'st.processing': ['Finishing up…', 'Final touch…', 'पूरा कर रहे…'],
   'st.paused': ['Paused', 'Ruka hua', 'रुका हुआ'],
   'st.left': ['{time} left', '{time} baaki', '{time} बाकी'],
+  'st.partial': ['some items failed', 'kuch items fail hue', 'कुछ आइटम विफल'],
   'act.open': ['Open', 'Kholo', 'खोलें'],
   'act.share': ['Share', 'Share', 'शेयर'],
   'act.delete': ['Delete', 'Delete', 'हटाएँ'],

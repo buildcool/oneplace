@@ -42,6 +42,9 @@ object Queue {
     private val lastEmit = ConcurrentHashMap<String, Long>()
     private val lastSave = ConcurrentHashMap<String, Long>()
 
+    /** Source files already copied to shared storage, per job (so nothing is saved twice). */
+    private val published = ConcurrentHashMap<String, MutableSet<String>>()
+
     @Volatile
     private var lastSummary = 0L
 
@@ -189,11 +192,14 @@ object Queue {
         var res = execute(ctx, job, job.template, out())
         if (job.status == "canceled") return cleanup(dir)
         if (job.status == "queued") return // paused by the system; resumes later from the .part files
-        if (res.code != 0 && !job.usedFallback && job.fallback != null && NO_VIDEO.containsMatchIn(res.err)) {
+        // Nothing saved yet: maybe the post only has photos, or the site changed (self-heal once).
+        if (job.files.isEmpty() && res.code != 0 && !job.usedFallback && job.fallback != null && NO_VIDEO.containsMatchIn(res.err)) {
             job.usedFallback = true
             res = execute(ctx, job, job.template, out())
         }
-        if (res.code != 0 && job.template.engine == "ytdlp" && !job.healed && Config.autoEngineUpdate(ctx) && !USER_SIDE.containsMatchIn(res.err)) {
+        if (job.files.isEmpty() && res.code != 0 && job.template.engine == "ytdlp" && !job.healed &&
+            Config.autoEngineUpdate(ctx) && !USER_SIDE.containsMatchIn(res.err)
+        ) {
             job.healed = true
             job.line = Config.text(ctx, "updatingEngine", "Updating engine and trying again")
             emit(job, true)
@@ -201,17 +207,20 @@ object Queue {
         }
         if (job.status == "canceled") return cleanup(dir)
         if (job.status == "queued") return
-        val outputs = if (res.code == 0) collect(out()) else emptyList()
-        if (outputs.isEmpty()) {
+        // Files that were not announced while running (thumbnails…) only count when the run succeeded.
+        if (res.code == 0) collect(out()).forEach { publishNow(ctx, job, it, deleteSource = true) }
+        published.remove(job.id)
+        if (job.files.isEmpty()) {
             val why = if (res.code == 0) "Nothing was downloaded.\n${res.err.takeLast(2000)}" else res.err.ifBlank { "exit code ${res.code}" }
             fail(ctx, job, why)
         } else {
-            job.files = outputs.map { Saver.publish(ctx, it) }
             if (job.titleFromFile) {
-                job.title = Progress.titleOf(outputs.first().name)
+                job.title = Progress.titleOf(job.files.first().name)
                 job.titleFromFile = false
             }
             job.status = "done"
+            // Some playlist items failed (deleted, private…): keep what worked and say so.
+            job.error = if (res.code != 0) res.err.takeLast(4000) else null
             job.progress = 100.0
             job.eta = 0
             job.speed = null
@@ -224,6 +233,26 @@ object Queue {
         cleanup(dir)
     }
 
+    /** Copy a finished file into Movies/Music/Pictures right away (long playlists fill up as they go). */
+    private fun publishNow(ctx: Context, job: Job, file: File, deleteSource: Boolean) {
+        val done = published.getOrPut(job.id) { ConcurrentHashMap.newKeySet() }
+        val path = file.absolutePath
+        if (!file.isFile || file.length() == 0L || !done.add(path)) return
+        val saved = try {
+            Saver.publish(ctx, file)
+        } catch (e: Exception) {
+            done.remove(path)
+            return
+        }
+        if (deleteSource) file.delete()
+        job.files = job.files + saved
+        JobStore.save(job)
+        emit(job, true)
+    }
+
+    /** yt-dlp's record of finished playlist items, so resumes and retries skip them. */
+    private fun archiveOf(ctx: Context, id: String) = File(File(ctx.filesDir, "archives").apply { mkdirs() }, "$id.txt")
+
     private suspend fun execute(ctx: Context, job: Job, t: Template, dir: File): Runner.Result {
         dir.mkdirs()
         job.progress = -1.0
@@ -231,14 +260,13 @@ object Queue {
         job.speed = null
         return when (t.engine) {
             "gallerydl" -> {
-                var saved = 0
                 val args = t.args + listOf("-D", dir.absolutePath) + Engines.cookieArgs(ctx, job.site) + job.url
                 Runner.gallery(ctx, job.id, args) { line ->
-                    // gallery-dl prints each saved file's path ("# " marks files it skipped)
-                    if (line.startsWith("/") || line.startsWith("# /")) {
-                        saved++
-                        job.line = "$saved"
-                        emit(job)
+                    // gallery-dl prints each finished file's path ("# " marks files it skipped). Keep the
+                    // source until the end, or gallery-dl would download it again when it repeats.
+                    if (line.startsWith("/")) {
+                        publishNow(ctx, job, File(line.trim()), deleteSource = false)
+                        job.line = "${job.files.size}"
                         summaryTick(ctx)
                     }
                 }
@@ -252,10 +280,17 @@ object Queue {
             }
             else -> {
                 val tracker = Progress(Progress.streamsOf(t.args))
+                val archive = if (job.isPlaylist) listOf("--download-archive", archiveOf(ctx, job.id).absolutePath) else emptyList()
                 val args = t.args +
                     listOf("-P", dir.absolutePath, "--cache-dir", Engines.cacheDir(ctx), "--progress-template", Progress.TEMPLATE) +
-                    Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) + job.url
+                    // --print would make yt-dlp quiet; --no-quiet keeps the progress lines we read.
+                    listOf("--no-quiet", "--print", "after_move:${Progress.FILE_MARK} %(filepath)s") +
+                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) + job.url
                 Runner.ytdlp(ctx, job.id, args) { line ->
+                    if (line.startsWith(Progress.FILE_MARK)) {
+                        publishNow(ctx, job, File(line.removePrefix(Progress.FILE_MARK).trim()), deleteSource = true)
+                        return@ytdlp
+                    }
                     if (tracker.feed(line)) {
                         job.progress = tracker.percent
                         job.eta = tracker.eta
@@ -271,12 +306,16 @@ object Queue {
         }
     }
 
-    /** Finished files in a job folder (partial and temporary files are skipped). */
+    /** yt-dlp's per-format pieces before merging ("Title.f137.mp4"). */
+    private val PIECE = Regex("""\.f\d+(-\d+)?\.\w+$""")
+
+    /** Finished files in a job folder (partial, temporary and not-yet-merged files are skipped). */
     private fun collect(dir: File): List<File> =
         dir.walkTopDown().filter { f ->
             f.isFile && f.length() > 0 && !f.name.startsWith(".") &&
                 !f.name.endsWith(".part") && !f.name.endsWith(".ytdl") && !f.name.endsWith(".temp") &&
-                !f.name.contains(".part-Frag") && !f.name.endsWith(".tmp") && !f.name.endsWith(".json")
+                !f.name.contains(".part-Frag") && !f.name.endsWith(".tmp") && !f.name.endsWith(".json") &&
+                !PIECE.containsMatchIn(f.name)
         }.sortedBy { it.name }.toList()
 
     private fun fail(ctx: Context, job: Job, error: String) {
@@ -298,6 +337,7 @@ object Queue {
         job.speed = null
         job.line = null
         Runner.kill(id)
+        published.remove(id)
         JobStore.save(job)
         emit(job, true)
         Notifier.updateSummary(ctx)
@@ -313,7 +353,8 @@ object Queue {
         job.attempts++
         job.usedFallback = false
         job.healed = false
-        job.files = emptyList()
+        // Playlists keep what they already saved; the download archive makes the retry fetch only the rest.
+        if (!job.isPlaylist) job.files = emptyList()
         job.finishedAt = null
         JobStore.save(job)
         emit(job, true)
@@ -327,6 +368,7 @@ object Queue {
             cancel(ctx, id)
             if (deleteFiles) Saver.delete(ctx, job.files)
             Notifier.cancel(ctx, job)
+            archiveOf(ctx, id).delete()
             JobStore.remove(id)
             lastEmit.remove(id)
             lastSave.remove(id)

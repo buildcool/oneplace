@@ -55,6 +55,9 @@ class Job(
     var titleFromFile: Boolean = false,
 ) {
     val template: Template get() = if (usedFallback && fallback != null) fallback else main
+
+    /** Whole playlist/channel: items are saved one by one and a retry only fetches the missing ones. */
+    val isPlaylist: Boolean get() = main.args.contains("--yes-playlist")
     val dest: String get() = template.dest
 
     /** What the UI gets. */

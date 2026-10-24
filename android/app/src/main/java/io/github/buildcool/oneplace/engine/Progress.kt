@@ -79,6 +79,9 @@ class Progress(private val streams: Int) {
     companion object {
         const val MARK = "[op]"
 
+        /** Printed by yt-dlp (--print after_move) once a file is completely finished. */
+        const val FILE_MARK = "[opfile]"
+
         /** Appended to every yt-dlp download so progress is machine-readable. */
         const val TEMPLATE =
             "download:[op] %(progress.downloaded_bytes)s %(progress.total_bytes,progress.total_bytes_estimate)s %(progress.speed)s %(progress.eta)s"
