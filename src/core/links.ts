@@ -379,5 +379,35 @@ export function firstLink(text: string): Link | undefined {
   return url ? detect(url) : undefined;
 }
 
+/** Streaming services that lock everything with DRM: no engine can (or may) download from them. */
+const DRM_SERVICES: { name: string; music?: boolean; host: RegExp; path?: RegExp }[] = [
+  { name: 'Netflix', host: /(^|\.)netflix\.com$/ },
+  { name: 'Prime Video', host: /(^|\.)primevideo\.com$|^watch\.amazon\.[a-z.]+$/ },
+  { name: 'Prime Video', host: /^amazon\.[a-z.]+$/, path: /^\/gp\/video\// },
+  { name: 'JioHotstar', host: /(^|\.)(hotstar|jiohotstar|jiocinema)\.com$/ },
+  { name: 'Disney+', host: /(^|\.)disneyplus\.com$/ },
+  { name: 'ZEE5', host: /(^|\.)zee5\.com$/ },
+  { name: 'Apple TV+', host: /^tv\.apple\.com$/ },
+  { name: 'aha', host: /^aha\.video$/ },
+  { name: 'Spotify', music: true, host: /^(open\.)?spotify\.com$|^spotify\.link$/ },
+  { name: 'Apple Music', music: true, host: /^music\.apple\.com$/ },
+  { name: 'Amazon Music', music: true, host: /^music\.amazon\.[a-z.]+$/ },
+  { name: 'Gaana', music: true, host: /^gaana\.com$/ },
+  { name: 'Wynk Music', music: true, host: /^wynk\.in$/ },
+];
+
+/** The DRM-only service a link belongs to (Netflix, Spotify…), so the app can say so instead of trying. */
+export function drmService(raw: string): { name: string; music: boolean } | undefined {
+  let u: URL;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    return undefined;
+  }
+  const host = baseHost(u.hostname);
+  const s = DRM_SERVICES.find((d) => d.host.test(host) && (!d.path || d.path.test(u.pathname)));
+  return s ? { name: s.name, music: !!s.music } : undefined;
+}
+
 /** Kinds that point at many videos/songs (yt-dlp playlists: download all or the first N). */
 export const isCollection = (kind: LinkKind) => kind === 'playlist' || kind === 'channel' || kind === 'album' || kind === 'profile';

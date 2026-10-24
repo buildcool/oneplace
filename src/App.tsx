@@ -266,7 +266,7 @@ export default function App() {
   };
 
   const fixJob = async (j: Job) => {
-    const { fix } = explain(j.error);
+    const { fix } = explain(j.error, j.url);
     const link = detect(j.url);
     if (fix === 'login') {
       await login(j.site);

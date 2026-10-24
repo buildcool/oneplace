@@ -1,5 +1,6 @@
 import { errorLine, explain } from '../core/errors.ts';
 import { bytes, duration } from '../core/format.ts';
+import { drmService } from '../core/links.ts';
 import { siteInfo } from '../core/sites.ts';
 import type { Job } from '../core/types.ts';
 import type { Key, T } from '../i18n.ts';
@@ -36,7 +37,9 @@ export function jobLine(j: Job, t: T): string {
 }
 
 export function failText(j: Job, t: T): string {
-  const { code } = explain(j.error);
+  const drm = drmService(j.url);
+  if (drm) return t('drm.title', { site: drm.name });
+  const { code } = explain(j.error, j.url);
   return t(`err.${code}` as Key, { site: siteInfo(j.site).name });
 }
 

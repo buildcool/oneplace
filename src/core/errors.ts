@@ -1,5 +1,8 @@
 // Turns engine error output into a short, honest explanation plus one button that can fix it.
 
+import { detect, drmService } from './links.ts';
+import { SITES } from './sites.ts';
+
 export type ErrorCode =
   | 'login'
   | 'private'
@@ -78,12 +81,16 @@ const FIX: Record<ErrorCode, FixAction> = {
   unknown: 'report',
 };
 
-export function explain(raw: string | undefined): Explained {
+/** Pass the link when known: some answers depend on the site, not only on the message. */
+export function explain(raw: string | undefined, url?: string): Explained {
   const text = raw ?? '';
-  const code = RULES.find(([re]) => re.test(text))?.[1] ?? 'unknown';
+  // Netflix & co. fail in odd ways (timeouts, "unsupported", "log in"); the real reason is always DRM.
+  const code: ErrorCode = url && drmService(url) ? 'drm' : (RULES.find(([re]) => re.test(text))?.[1] ?? 'unknown');
   // YouTube's "Sign in to confirm you're not a bot" is often fixed by a newer yt-dlp too.
   const engineFixable = code === 'extractor' || code === 'forbidden' || code === 'unknown' || /not a bot/i.test(text);
-  return { code, fix: FIX[code], engineFixable };
+  // A "Log in" button only helps on sites OnePlace has a login page for.
+  const fix = FIX[code] === 'login' && url && !SITES[detect(url).site]?.login ? 'none' : FIX[code];
+  return { code, fix, engineFixable };
 }
 
 /** The last "ERROR:" line, for showing under the friendly text and in bug reports. */

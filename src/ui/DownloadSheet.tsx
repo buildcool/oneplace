@@ -3,7 +3,7 @@ import { explain, type Explained } from '../core/errors.ts';
 import { bytes } from '../core/format.ts';
 import { parseGallery, parseJson, parseYtInfo, type AudioOption, type Gallery, type Media, type VideoOption, type YtInfo } from '../core/formats.ts';
 import { infoArgs } from '../core/info.ts';
-import { detect, findUrls } from '../core/links.ts';
+import { detect, drmService, findUrls } from '../core/links.ts';
 import { audioSpec, buildRequest, videoSpec, type Settings } from '../core/settings.ts';
 import { KIND_LABEL, enginesFor, needsLogin, siteInfo } from '../core/sites.ts';
 import { thumbChoices } from '../core/thumbs.ts';
@@ -93,6 +93,12 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
         }
       }
       if (!alive) return;
+      // Netflix, Prime Video, Spotify…: say why right away instead of a confusing engine error.
+      if (drmService(link.url)) {
+        setErr({ ex: explain('', link.url), raw: '', link });
+        setPhase('error');
+        return;
+      }
       setPhase('reading');
       setStep('sheet.reading');
       let first: { ex: Explained; raw: string } | undefined;
@@ -111,7 +117,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
         } catch (e) {
           if (!alive) return;
           const raw = String((e as Error)?.message ?? e);
-          const ex = explain(raw);
+          const ex = explain(raw, link.url);
           if (!first || (VAGUE.has(first.ex.code) && !VAGUE.has(ex.code))) first = { ex, raw };
         }
       }
@@ -129,6 +135,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
   const gallery = data?.gallery;
   const link = data?.link ?? err?.link;
   const site = siteInfo(link?.site ?? 'other');
+  const drm = link ? drmService(link.url) : undefined;
   const thumbs = useMemo(() => (data ? thumbChoices(data.link, media?.thumbnails, media?.thumb ?? gallery?.items[0]?.preview) : []), [data, media, gallery]);
 
   // First selection when a link has been read.
@@ -264,9 +271,10 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
         <div className="stack" style={{ padding: '8px 0 4px' }}>
           {link ? <LinkLine link={link} /> : null}
           <div className="banner bad">
-            <Icon name="alert" />
+            <Icon name={drm ? 'shield' : 'alert'} />
             <div className="grow">
-              <b>{url ? t(`err.${err.ex.code}` as Key, { site: site.name }) : t('home.noLink')}</b>
+              <b>{drm ? t('drm.title', { site: drm.name }) : url ? t(`err.${err.ex.code}` as Key, { site: site.name }) : t('home.noLink')}</b>
+              {drm ? <div className="small" style={{ marginTop: 4 }}>{t(drm.music ? 'drm.music' : 'drm.video', { site: drm.name })}</div> : null}
               {err.raw ? (
                 <button type="button" className="small muted" onClick={() => setDetails((d) => !d)} style={{ marginTop: 4 }}>
                   {t('act.details')} {details ? '▴' : '▾'}
@@ -281,7 +289,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
               {fixing ? t('fix.updating') : t(`fix.${err.ex.fix}` as Key)}
             </button>
           ) : null}
-          {url && err.ex.fix !== 'retry' ? (
+          {url && err.ex.fix !== 'retry' && err.ex.code !== 'drm' ? (
             <button type="button" className="btn block tonal" onClick={() => setAttempt((a) => a + 1)}>
               <Icon name="refresh" size={18} /> {t('fix.retry')}
             </button>

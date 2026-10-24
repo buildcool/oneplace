@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanUrl, detect, findUrls, firstLink, isCollection } from '../src/core/links.ts';
+import { cleanUrl, detect, drmService, findUrls, firstLink, isCollection } from '../src/core/links.ts';
 
 describe('findUrls', () => {
   it('finds links inside shared text and trims punctuation', () => {
@@ -113,5 +113,28 @@ describe('helpers', () => {
   it('isCollection', () => {
     expect(isCollection('playlist')).toBe(true);
     expect(isCollection('video')).toBe(false);
+  });
+});
+
+describe('drmService', () => {
+  it('knows the DRM-only streaming services', () => {
+    expect(drmService('https://www.netflix.com/title/80057281?s=a&trkid=13747225')).toEqual({ name: 'Netflix', music: false });
+    expect(drmService('https://app.primevideo.com/detail?gti=amzn1.dv.gti.123')?.name).toBe('Prime Video');
+    expect(drmService('https://www.amazon.in/gp/video/detail/B0D1234567')?.name).toBe('Prime Video');
+    expect(drmService('https://www.hotstar.com/in/shows/anupama/1260022017/anupama-anuj-share-a-moment/1000282843')?.name).toBe('JioHotstar');
+    expect(drmService('https://www.zee5.com/movies/details/krishna-and-his-leela/0-0-133334')?.name).toBe('ZEE5');
+    expect(drmService('https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc')).toEqual({ name: 'Spotify', music: true });
+  });
+
+  it('leaves other links alone', () => {
+    for (const url of [
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://www.amazon.in/minitv/tp/75fe3a75-b8fe-4499-8100-5c9424344840',
+      'https://www.amazon.in/dp/B0D1234567',
+      'https://www.jiosaavn.com/song/chuttamalle/P1FfWjZkQ0Q',
+      'not a link',
+    ]) {
+      expect(drmService(url)).toBeUndefined();
+    }
   });
 });

@@ -12,8 +12,11 @@ Status from tests in Termux with the same engine arguments the app uses (`npm ru
 | Facebook reels / videos | ✅ Works | Public videos without login |
 | X (Twitter) | ✅ Works | Multi-video posts come as a list |
 | Reddit | ⚠️ Varies | Reddit sometimes blocks anonymous requests ("blocked by network security"); login helps |
-| TikTok, Pinterest, Vimeo, Dailymotion, Twitch, SoundCloud, JioSaavn, Bandcamp … | ✅ Expected | yt-dlp/gallery-dl extractors exist; not yet re-tested here |
+| JioSaavn songs | ✅ Works | 320 kbps (tested 2026-10-24) |
+| TikTok, Pinterest, Vimeo, Dailymotion, Twitch, SoundCloud, Bandcamp … | ✅ Expected | yt-dlp/gallery-dl extractors exist; not yet re-tested here |
 | Threads, ShareChat, Moj, Terabox | 🧪 Best effort | Not in either engine yet; planned: in-app browser media detection (P3) |
-| Netflix, Prime Video, JioHotstar premium, Spotify, Apple Music | ❌ Never | DRM-protected |
+| MX Player, Amazon miniTV | ⚠️ Broken now | yt-dlp has extractors, but both failed on 2026-10-24 ("Unable to extract", "Failed to parse JSON"); may work again after an engine update |
+| SonyLIV (free videos, trailers) | 🧪 Untested | yt-dlp has an extractor; premium is DRM; may need a login OnePlace doesn't have yet |
+| Netflix, Prime Video, JioHotstar, ZEE5, Disney+, Apple TV+, aha, Spotify, Apple Music, Amazon Music, Gaana, Wynk | ❌ Never | DRM-protected. Tested 2026-10-24: Netflix times out, Prime Video/ZEE5 → yt-dlp "known to use DRM", JioHotstar → "only for registered users" (and DRM). The app now says "can't be downloaded" as soon as such a link is shared. |
 
 Please report results from your phone with **More → Engine test → Copy results**.

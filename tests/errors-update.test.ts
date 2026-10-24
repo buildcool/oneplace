@@ -29,6 +29,19 @@ describe('explain', () => {
     expect(explain('Private video').engineFixable).toBe(false);
   });
 
+  it('blames DRM for Netflix-type links, whatever the engine said', () => {
+    const netflix = 'https://www.netflix.com/title/80057281';
+    expect(explain('ERROR: [generic] 80057281: Unable to download webpage: Read timed out. (read timeout=20.0)', netflix)).toMatchObject({ code: 'drm', fix: 'none', engineFixable: false });
+    expect(explain('ERROR: [DRM] The requested site is known to use DRM protection. It will NOT be supported.')).toMatchObject({ code: 'drm', fix: 'none' });
+  });
+
+  it('offers "Log in" only for sites OnePlace can log in to', () => {
+    const raw = 'ERROR: [SonyLIV] 1000100286: This video is only available for registered users. Use --cookies-from-browser or --cookies';
+    expect(explain(raw, 'https://www.sonyliv.com/shows/x-1000100286')).toMatchObject({ code: 'login', fix: 'none' });
+    expect(explain(raw, 'https://www.instagram.com/p/C9xYz12AbCd/')).toMatchObject({ code: 'login', fix: 'login' });
+    expect(explain(raw)).toMatchObject({ code: 'login', fix: 'login' });
+  });
+
   it('picks the error line', () => {
     expect(errorLine('WARNING: x\n[youtube] y\nERROR: [youtube] abc: Video unavailable\n')).toBe('[youtube] abc: Video unavailable');
   });

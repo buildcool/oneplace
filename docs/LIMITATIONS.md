@@ -31,7 +31,7 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
 - **Custom domain** (optional): the GitHub Pages subdomain is free.
 
 **Not possible even with a server:**
-- **DRM content:** Netflix, Prime Video, JioHotstar premium, Zee5, SonyLIV premium, Spotify/Apple Music/Gaana/Wynk audio.
+- **DRM content:** Netflix, Prime Video, JioHotstar, ZEE5, SonyLIV premium, Disney+, Apple TV+, aha; Spotify/Apple Music/Amazon Music/Gaana/Wynk audio. OnePlace recognises these links and explains instead of trying.
 - **Private IG/FB accounts** you don't follow.
 - **Quality above the source:** YouTube audio is about 128–160 kbps (256 kbps with Premium cookies). "MP3 320" is only a conversion, and the label says so.
 - **Silent install of the very first update.** The user confirms that one. Later self-updates on Android 12+ may be silent.

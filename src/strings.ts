@@ -117,6 +117,17 @@ const S = {
   ],
   'err.geo': ['Not available in your country.', 'Aapke desh mein available nahi.', 'आपके देश में उपलब्ध नहीं।'],
   'err.drm': ['DRM-protected content cannot be downloaded.', 'DRM-protected content download nahi ho sakta.', 'DRM से सुरक्षित कंटेंट डाउनलोड नहीं हो सकता।'],
+  'drm.title': ['{site} can\'t be downloaded', '{site} download nahi ho sakta', '{site} डाउनलोड नहीं हो सकता'],
+  'drm.video': [
+    '{site} locks its videos with DRM copy protection, so no downloader app can save them. To watch offline, use the Download button in the {site} app.',
+    '{site} apne videos DRM copy-protection se lock karta hai, isliye koi bhi downloader app inhe save nahi kar sakta. Offline dekhne ke liye {site} app ka Download button use karo.',
+    '{site} अपने वीडियो DRM कॉपी-प्रोटेक्शन से लॉक करता है, इसलिए कोई भी डाउनलोडर ऐप इन्हें सेव नहीं कर सकता। ऑफ़लाइन देखने के लिए {site} ऐप का Download बटन इस्तेमाल करें।',
+  ],
+  'drm.music': [
+    '{site} songs are locked with DRM, so no downloader app can save them. Tip: find the same song on YouTube Music or JioSaavn and download it from there.',
+    '{site} ke songs DRM se locked hain, koi bhi downloader app inhe save nahi kar sakta. Tip: wahi song YouTube Music ya JioSaavn par dhoondo aur wahan se download karo.',
+    '{site} के गाने DRM से लॉक हैं, कोई भी डाउनलोडर ऐप इन्हें सेव नहीं कर सकता। सुझाव: वही गाना YouTube Music या JioSaavn पर ढूँढें और वहाँ से डाउनलोड करें।',
+  ],
   'err.upcoming': [
     'Not started yet. Try again when it is live or published.',
     'Abhi shuru nahi hua. Live ya publish hone par try karo.',
@@ -279,9 +290,9 @@ const S = {
     'और 1,000+ साइट्स yt-dlp और gallery-dl से। कोई भी लिंक पेस्ट करके देखें।',
   ],
   'sites.never': [
-    'Not possible: Netflix, Prime Video, JioHotstar premium, Spotify and other DRM-protected services.',
-    'Possible nahi: Netflix, Prime Video, JioHotstar premium, Spotify aur baaki DRM-protected services.',
-    'संभव नहीं: Netflix, Prime Video, JioHotstar प्रीमियम, Spotify और दूसरी DRM-सुरक्षित सेवाएँ।',
+    'Not possible: Netflix, Prime Video, JioHotstar, ZEE5, Spotify and other DRM-protected services. To watch offline, use the Download button in their own app.',
+    'Possible nahi: Netflix, Prime Video, JioHotstar, ZEE5, Spotify aur baaki DRM-protected services. Offline dekhne ke liye unke apne app ka Download button use karo.',
+    'संभव नहीं: Netflix, Prime Video, JioHotstar, ZEE5, Spotify और दूसरी DRM-सुरक्षित सेवाएँ। ऑफ़लाइन देखने के लिए उनके अपने ऐप का Download बटन इस्तेमाल करें।',
   ],
 
   'about.body': [

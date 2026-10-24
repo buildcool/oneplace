@@ -72,7 +72,8 @@ function JobCard({ j, onCancel, onRetry, onFix, onOpen, onMenu }: Props & { j: J
   const t = useT();
   const [more, setMore] = useState(false);
   const running = j.status === 'running' || j.status === 'queued';
-  const fix = j.status === 'failed' ? explain(j.error).fix : 'none';
+  const ex = j.status === 'failed' ? explain(j.error, j.url) : undefined;
+  const fix = ex?.fix ?? 'none';
   return (
     <div className={`card job${j.status === 'failed' ? ' failed' : ''}`}>
       <button type="button" onClick={() => (j.status === 'done' ? onOpen(j) : onMenu(j))} aria-label={j.title}>
@@ -94,9 +95,11 @@ function JobCard({ j, onCancel, onRetry, onFix, onOpen, onMenu }: Props & { j: J
                   {t(`fix.${fix}` as Key)}
                 </button>
               ) : null}
-              <button type="button" className="btn small tonal" onClick={() => onRetry(j)}>
-                <Icon name="refresh" size={16} /> {t('act.retry')}
-              </button>
+              {ex?.code !== 'drm' ? (
+                <button type="button" className="btn small tonal" onClick={() => onRetry(j)}>
+                  <Icon name="refresh" size={16} /> {t('act.retry')}
+                </button>
+              ) : null}
               <button type="button" className="btn small ghost" onClick={() => setMore((m) => !m)}>
                 {t('act.details')}
               </button>
