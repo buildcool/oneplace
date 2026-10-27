@@ -1,4 +1,4 @@
-import { errorLine, explain } from '../core/errors.ts';
+import { errorLine, explain, type ErrorCode } from '../core/errors.ts';
 import { bytes, duration } from '../core/format.ts';
 import { drmService } from '../core/links.ts';
 import { siteInfo } from '../core/sites.ts';
@@ -40,7 +40,10 @@ export function failText(j: Job, t: T): string {
   const drm = drmService(j.url);
   if (drm) return t('drm.title', { site: drm.name });
   const { code } = explain(j.error, j.url);
-  return t(`err.${code}` as Key, { site: siteInfo(j.site).name });
+  return t(errKey(code, j.site), { site: siteInfo(j.site).name });
 }
+
+/** Instagram refuses some public reels to apps without an account (yt-dlp needs a browser add-on we can't ship), so say so. */
+export const errKey = (code: ErrorCode, site: string): Key => (code === 'login' && site === 'instagram' ? 'err.igLogin' : (`err.${code}` as Key));
 
 export const failDetail = (j: Job) => errorLine(j.error);

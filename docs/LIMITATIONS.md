@@ -37,6 +37,7 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
 - **Silent install of the very first update.** The user confirms that one. Later self-updates on Android 12+ may be silent.
 
 **Risks we manage:**
+- **Instagram without login on Android** → since yt-dlp 2026.07.04, logged-out Instagram needs browser impersonation (curl_cffi), which has no Android build. yt-dlp then reads the reel's web page, which works for most reels but not all; the rest need an in-app login. Online downloader sites don't have this problem because they run on servers.
 - **Sites change often** → engine auto-update (Nightly), self-heal retry, remote announcements.
 - **YouTube bot checks** → QuickJS inside the APK solves the JS challenges. Cookies and a PO-token helper are advanced options.
 - **Instagram rate-limits logged-out users** → polite delays, login option, spare-account warning.

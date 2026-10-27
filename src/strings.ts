@@ -103,6 +103,11 @@ const S = {
     'Iske liye login chahiye. OnePlace mein {site} login karke phir try karo.',
     'इसके लिए लॉगिन चाहिए। OnePlace में {site} में लॉगिन करके फिर कोशिश करें।',
   ],
+  'err.igLogin': [
+    'Instagram didn\'t show this to OnePlace without an account. Log in to Instagram here once (a spare account is safest) and try again. Deleted posts and private accounts you don\'t follow can\'t be downloaded.',
+    'Instagram ne ye bina account ke OnePlace ko nahi dikhaya. Yahan ek baar Instagram login karo (spare account best hai) aur phir try karo. Deleted posts aur private accounts (jinhe aap follow nahi karte) download nahi ho sakte.',
+    'Instagram ने इसे बिना अकाउंट के OnePlace को नहीं दिखाया। यहाँ एक बार Instagram में लॉगिन करें (दूसरा अकाउंट सबसे सुरक्षित है) और फिर कोशिश करें। डिलीट हुई पोस्ट और ऐसे प्राइवेट अकाउंट जिन्हें आप फ़ॉलो नहीं करते, डाउनलोड नहीं हो सकते।',
+  ],
   'err.private': [
     'This is private. If you can see it in the app, log in to {site} inside OnePlace.',
     'Ye private hai. App mein dikhta hai to OnePlace mein {site} login karo.',

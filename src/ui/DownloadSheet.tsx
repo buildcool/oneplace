@@ -12,6 +12,7 @@ import { engine, type EngineStatus, type InfoResult } from '../engine/index.ts';
 import { useT, type Key } from '../i18n.ts';
 import { Icon } from './Icon.tsx';
 import { Progress, Seg, Sheet, SiteAvatar, Switch, Thumb } from './common.tsx';
+import { errKey } from './jobs.ts';
 import { openExternal, reportUrl } from './report.ts';
 
 type Tab = 'video' | 'audio' | 'photos' | 'thumb';
@@ -273,7 +274,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
           <div className="banner bad">
             <Icon name={drm ? 'shield' : 'alert'} />
             <div className="grow">
-              <b>{drm ? t('drm.title', { site: drm.name }) : url ? t(`err.${err.ex.code}` as Key, { site: site.name }) : t('home.noLink')}</b>
+              <b>{drm ? t('drm.title', { site: drm.name }) : url ? t(errKey(err.ex.code, link?.site ?? ''), { site: site.name }) : t('home.noLink')}</b>
               {drm ? <div className="small" style={{ marginTop: 4 }}>{t(drm.music ? 'drm.music' : 'drm.video', { site: drm.name })}</div> : null}
               {err.raw ? (
                 <button type="button" className="small muted" onClick={() => setDetails((d) => !d)} style={{ marginTop: 4 }}>
