@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.StatFs
 import io.github.buildcool.oneplace.Config
 import io.github.buildcool.oneplace.engine.Engines
+import io.github.buildcool.oneplace.engine.InfoCache
 import io.github.buildcool.oneplace.engine.Progress
 import io.github.buildcool.oneplace.engine.Runner
 import io.github.buildcool.oneplace.storage.Saver
@@ -189,9 +190,18 @@ object Queue {
         if (free < need) return fail(ctx, job, "No space left on device: about ${need shr 20} MB needed, ${free shr 20} MB free")
         val dir = File(ctx.cacheDir, "jobs/${job.id}")
         fun out() = File(dir, if (job.usedFallback) "b" else "a")
-        var res = execute(ctx, job, job.template, out())
+        // Read once: start from the sheet's answer (waiting for it while the sheet is still reading).
+        val info = if (job.template.engine == "ytdlp" && !job.isPlaylist && !job.usedFallback) InfoCache.get(ctx, job.url) else null
+        var res = execute(ctx, job, job.template, out(), info)
         if (job.status == "canceled") return cleanup(dir)
         if (job.status == "queued") return // paused by the system; resumes later from the .part files
+        // The download links in that answer can expire: read the link itself once.
+        if (info != null && job.files.isEmpty() && res.code != 0) {
+            InfoCache.drop(ctx, job.url)
+            res = execute(ctx, job, job.template, out())
+            if (job.status == "canceled") return cleanup(dir)
+            if (job.status == "queued") return
+        }
         // Nothing saved yet: maybe the post only has photos, or the site changed (self-heal once).
         if (job.files.isEmpty() && res.code != 0 && !job.usedFallback && job.fallback != null && NO_VIDEO.containsMatchIn(res.err)) {
             job.usedFallback = true
@@ -253,7 +263,7 @@ object Queue {
     /** yt-dlp's record of finished playlist items, so resumes and retries skip them. */
     private fun archiveOf(ctx: Context, id: String) = File(File(ctx.filesDir, "archives").apply { mkdirs() }, "$id.txt")
 
-    private suspend fun execute(ctx: Context, job: Job, t: Template, dir: File): Runner.Result {
+    private suspend fun execute(ctx: Context, job: Job, t: Template, dir: File, info: File? = null): Runner.Result {
         dir.mkdirs()
         job.progress = -1.0
         job.eta = -1
@@ -281,11 +291,13 @@ object Queue {
             else -> {
                 val tracker = Progress(Progress.streamsOf(t.args))
                 val archive = if (job.isPlaylist) listOf("--download-archive", archiveOf(ctx, job.id).absolutePath) else emptyList()
+                // From the sheet's answer when there is one: no second read of the link.
+                val target = if (info != null) listOf("--load-info-json", info.absolutePath) else listOf(job.url)
                 val args = t.args +
                     listOf("-P", dir.absolutePath, "--cache-dir", Engines.cacheDir(ctx), "--progress-template", Progress.TEMPLATE) +
                     // --print would make yt-dlp quiet; --no-quiet keeps the progress lines we read.
                     listOf("--no-quiet", "--print", "after_move:${Progress.FILE_MARK} %(filepath)s") +
-                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) + job.url
+                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) + target
                 Runner.ytdlp(ctx, job.id, args) { line ->
                     if (line.startsWith(Progress.FILE_MARK)) {
                         publishNow(ctx, job, File(line.removePrefix(Progress.FILE_MARK).trim()), deleteSource = true)

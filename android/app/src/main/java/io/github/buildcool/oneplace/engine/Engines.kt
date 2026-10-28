@@ -58,6 +58,7 @@ object Engines {
                 ready = true
                 // The yt-dlp inside the library is months old; YouTube needs the newest one.
                 if (YoutubeDL.getInstance().version(ctx) == null) runCatching { updateNow(ctx) }
+                FastStart.refreshSoon(ctx)
             }
         } catch (e: Throwable) {
             error = e.message ?: e.toString()
@@ -75,7 +76,9 @@ object Engines {
 
     private fun updateNow(ctx: Context): Boolean {
         val channel = if (Config.ytdlpChannel(ctx) == "stable") YoutubeDL.UpdateChannel._STABLE else YoutubeDL.UpdateChannel._NIGHTLY
-        return YoutubeDL.getInstance().updateYoutubeDL(ctx, channel) == YoutubeDL.UpdateStatus.DONE
+        val done = YoutubeDL.getInstance().updateYoutubeDL(ctx, channel) == YoutubeDL.UpdateStatus.DONE
+        if (done) FastStart.refreshSoon(ctx)
+        return done
     }
 
     /** Newest yt-dlp. Without [force] it runs at most every 10 minutes (used for self-healing). */
@@ -121,6 +124,9 @@ object Engines {
         ensureReady(ctx)
         val id = "info-${counter.incrementAndGet()}"
         infoRuns += id
+        // A single video read by yt-dlp is kept, so its download can start without reading it again.
+        val keep = engine != "gallerydl" && "--no-playlist" in args
+        val gate = if (keep) InfoCache.begin(url) else null
         try {
             val r = if (engine == "gallerydl") {
                 Runner.gallery(ctx, id, args + cookieArgs(ctx, site) + url, keepOut = true)
@@ -133,9 +139,11 @@ object Engines {
             val start = out.indexOfFirst { it == '{' || it == '[' }
             val json = if (start >= 0) out.substring(start) else ""
             if (json.isEmpty() || json == "null") throw Exception(r.err.ifBlank { "exit code ${r.code}" })
+            if (keep) InfoCache.put(ctx, url, json)
             return JSONObject().put("engine", engine).put("json", json).put("ms", r.ms)
         } finally {
             infoRuns -= id
+            gate?.let { InfoCache.end(url, it) }
         }
     }
 

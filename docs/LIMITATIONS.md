@@ -48,6 +48,6 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
 
 **Learned while building (2026-10-23):**
 - **Instagram without login:** only reels and video posts work (yt-dlp). Photo posts, carousels, stories and highlights need an in-app login (gallery-dl is redirected to the login page, and Instagram's public embed page no longer exposes images).
-- **First YouTube read is slow** (~13 s on a phone): Python start-up plus solving YouTube's JavaScript challenge with QuickJS. yt-dlp caches the player, so later reads are faster.
+- **YouTube reads take a few seconds** (measured 2026-10-28 in Termux on the user's phone): ~6 s once YouTube's current player version has been seen, ~14 s the first time for each new player version (QuickJS has to solve YouTube's JavaScript challenge; yt-dlp's preprocessed-player cache, switched on by OnePlace, makes repeats fast). Python starts from an unpacked, precompiled yt-dlp (~2 s faster than the zip), the download reuses the sheet's read (first bytes ~1.5 s after tapping Download) and "Start now" lets you tap Download while the link is still being read. A faster JavaScript engine than QuickJS is the remaining big win.
 - **Reddit** sometimes blocks anonymous requests from mobile networks; logging in helps.
 - **Wi-Fi-only on Android 13 and older:** queued downloads wait until OnePlace is opened again on Wi-Fi (Android 14+ resumes them by itself).

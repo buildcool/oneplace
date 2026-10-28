@@ -1,4 +1,5 @@
 import type { YtThumb } from './formats.ts';
+import { isCollection } from './links.ts';
 import type { Link } from './types.ts';
 
 // Thumbnail choices. YouTube thumbnails follow fixed URLs, so they work instantly from the
@@ -11,6 +12,12 @@ export interface ThumbChoice {
   height?: number;
   /** URLs tried in order until one exists (YouTube has no maxres image for some videos). */
   urls: string[];
+}
+
+/** A picture to show before the link has been read (only YouTube's are known from the link alone). */
+export function previewThumb(link: Pick<Link, 'site' | 'kind' | 'id'>): string | undefined {
+  if ((link.site === 'youtube' || link.site === 'ytmusic') && link.id && !isCollection(link.kind)) return `https://i.ytimg.com/vi/${link.id}/hqdefault.jpg`;
+  return undefined;
 }
 
 /** All YouTube sizes for a video id, biggest first. */

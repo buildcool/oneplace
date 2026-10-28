@@ -45,17 +45,26 @@ object Runner {
 
     suspend fun ytdlp(ctx: Context, id: String, args: List<String>, keepOut: Boolean = false, onLine: ((String) -> Unit)? = null): Result {
         val p = Paths(ctx)
-        val pre = mutableListOf(p.ytdlp.absolutePath, "--ffmpeg-location", p.ffmpeg.absolutePath)
+        // The unpacked copy starts ~2 s sooner than the zip (see FastStart).
+        val main = FastStart.current(ctx) ?: p.ytdlp
+        val pre = mutableListOf(main.absolutePath, "--ffmpeg-location", p.ffmpeg.absolutePath)
         if (p.qjs.exists()) pre += listOf("--js-runtimes", "quickjs:${p.qjs.absolutePath}")
         return python(ctx, id, pre + args, null, keepOut, onLine)
     }
 
     suspend fun gallery(ctx: Context, id: String, args: List<String>, keepOut: Boolean = false, onLine: ((String) -> Unit)? = null): Result {
         val p = Paths(ctx)
-        // gallery-dl and its pure-Python deps live in files/gdl; yt-dlp's zipapp lets it use yt_dlp for video posts.
-        val pythonPath = "${GalleryDl.dir(ctx).absolutePath}:${p.ytdlp.absolutePath}"
+        // gallery-dl and its pure-Python deps live in files/gdl; yt-dlp lets it use yt_dlp for video posts.
+        val pythonPath = "${GalleryDl.dir(ctx).absolutePath}:${(FastStart.current(ctx) ?: p.ytdlp).absolutePath}"
         return python(ctx, id, listOf("-m", "gallery_dl") + args, pythonPath, keepOut, onLine)
     }
+
+    /** A short Python snippet (FastStart unpacks yt-dlp with one). */
+    suspend fun script(ctx: Context, id: String, code: String, args: List<String>): Result =
+        python(ctx, id, listOf("-c", code) + args, null, keepOut = false, onLine = null)
+
+    /** True while any engine process runs. */
+    fun busy(): Boolean = running.isNotEmpty()
 
     private suspend fun python(
         ctx: Context,

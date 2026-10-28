@@ -110,6 +110,7 @@ export function buildRequest(o: {
   imageFormat?: JobRequest['imageFormat'];
   crop?: JobRequest['crop'];
   expectedBytes?: number;
+  titleFromFile?: boolean;
 }): JobRequest {
   const t = template(o.engine, o.spec);
   const canFallback = o.engine === 'ytdlp' && o.spec.mode === 'video' && enginesFor(o.link).includes('gallerydl');
@@ -125,6 +126,7 @@ export function buildRequest(o: {
     ...(o.imageFormat ? { imageFormat: o.imageFormat } : {}),
     ...(o.crop ? { crop: o.crop } : {}),
     ...(o.expectedBytes ? { expectedBytes: Math.round(o.expectedBytes) } : {}),
+    ...(o.titleFromFile ? { titleFromFile: true } : {}),
   };
 }
 

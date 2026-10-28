@@ -52,6 +52,8 @@ const S = {
   'sheet.resolving': ['Opening short link…', 'Short link khol rahe…', 'छोटा लिंक खोल रहे हैं…'],
   'sheet.reading': ['Reading link…', 'Link padh rahe…', 'लिंक पढ़ रहे हैं…'],
   'sheet.reading2': ['Finding every quality', 'Saari qualities dhoondh rahe', 'सारी क्वालिटी ढूँढ रहे हैं'],
+  'quick.title': ['Start now with your usual settings', 'Abhi shuru karo, apni usual settings se', 'अपनी सामान्य सेटिंग्स से अभी शुरू करें'],
+  'quick.wait': ['Or wait a moment to pick the quality and size.', 'Ya thoda ruko aur quality aur size chuno.', 'या थोड़ा रुककर क्वालिटी और साइज़ चुनें।'],
   'sheet.tryingPhotos': ['Looking for photos…', 'Photos dhoondh rahe…', 'फ़ोटो ढूँढ रहे हैं…'],
   'tab.video': ['Video', 'Video', 'वीडियो'],
   'tab.audio': ['Audio', 'Audio', 'ऑडियो'],

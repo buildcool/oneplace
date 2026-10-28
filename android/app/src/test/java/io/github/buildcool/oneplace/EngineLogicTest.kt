@@ -1,9 +1,12 @@
 package io.github.buildcool.oneplace
 
 import io.github.buildcool.oneplace.engine.Engines
+import io.github.buildcool.oneplace.engine.FastStart
 import io.github.buildcool.oneplace.engine.Progress
 import io.github.buildcool.oneplace.login.Cookies
 import io.github.buildcool.oneplace.queue.Job
+import java.io.File
+import java.nio.file.Files
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -103,5 +106,17 @@ class EngineLogicTest {
         assertTrue(Engines.olderThan("2025.11.12", "2026.01.01"))
         assertFalse(Engines.olderThan("2026.10.21.232909", "2026.10.21"))
         assertFalse(Engines.olderThan(null, "2026.10.21"))
+    }
+
+    @Test
+    fun onlyTheNewestYouTubePlayersAreKept() {
+        val dir = Files.createTempDirectory("players").toFile()
+        val now = 1_800_000_000_000L
+        val day = 24 * 3600_000L
+        for (i in 0 until 6) File(dir, "p$i.json").apply { writeText("x"); setLastModified(now - i * day) }
+        File(dir, "old.json").apply { writeText("x"); setLastModified(now - 20 * day) }
+        FastStart.prunePlayers(dir, now)
+        assertEquals(listOf("p0.json", "p1.json", "p2.json", "p3.json"), dir.list()!!.sorted())
+        dir.deleteRecursively()
     }
 }

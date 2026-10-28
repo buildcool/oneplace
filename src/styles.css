@@ -1094,6 +1094,26 @@ button.row:active {
   gap: 8px;
 }
 
+/* "Start now" while a link is still being read */
+.quick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.quick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quick-row .btn {
+  min-width: 0;
+  padding: 0 12px;
+  overflow: hidden;
+}
+
 .opt {
   display: flex;
   align-items: center;

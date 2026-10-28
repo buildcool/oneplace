@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { errorLine, explain } from '../src/core/errors.ts';
 import { buildOf, newest, pickAsset, type GhRelease } from '../src/core/update.ts';
 import { olderThan, parseRemoteConfig } from '../src/core/remoteConfig.ts';
-import { thumbChoices, youtubeThumbs } from '../src/core/thumbs.ts';
+import { previewThumb, thumbChoices, youtubeThumbs } from '../src/core/thumbs.ts';
 import { bytes, duration } from '../src/core/format.ts';
+import { detect } from '../src/core/links.ts';
 
 describe('explain', () => {
   const cases: [string, string, string][] = [
@@ -104,6 +105,13 @@ describe('thumbnails', () => {
     expect(t[0].urls[0]).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg');
     expect(t[0].urls.at(-1)).toContain('hqdefault');
     expect(thumbChoices({ site: 'youtube', id: 'dQw4w9WgXcQ' })).toHaveLength(5);
+  });
+
+  it('YouTube shows a picture before the link is read; other links and playlists do not', () => {
+    expect(previewThumb(detect('https://youtu.be/dQw4w9WgXcQ'))).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+    expect(previewThumb(detect('https://www.youtube.com/shorts/abcDEF12345'))).toContain('/abcDEF12345/');
+    expect(previewThumb(detect('https://www.youtube.com/@channel'))).toBeUndefined();
+    expect(previewThumb(detect('https://www.instagram.com/reel/C9xYz12AbCd/'))).toBeUndefined();
   });
 
   it('other sites use the largest images from the engine list', () => {

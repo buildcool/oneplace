@@ -161,4 +161,6 @@ export interface JobRequest extends JobTemplate {
   crop?: 'square';
   /** Size shown in the sheet, so the phone can check free space first. */
   expectedBytes?: number;
+  /** The title is a placeholder (download started before the link was read): use the file's name. */
+  titleFromFile?: boolean;
 }

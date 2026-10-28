@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { explain, type Explained } from '../core/errors.ts';
 import { bytes } from '../core/format.ts';
 import { parseGallery, parseJson, parseYtInfo, type AudioOption, type Gallery, type Media, type VideoOption, type YtInfo } from '../core/formats.ts';
 import { infoArgs } from '../core/info.ts';
-import { detect, drmService, findUrls } from '../core/links.ts';
+import { detect, drmService, findUrls, isCollection } from '../core/links.ts';
 import { audioSpec, buildRequest, videoSpec, type Settings } from '../core/settings.ts';
 import { KIND_LABEL, enginesFor, needsLogin, siteInfo } from '../core/sites.ts';
-import { thumbChoices } from '../core/thumbs.ts';
+import { previewThumb, thumbChoices } from '../core/thumbs.ts';
 import type { DownloadSpec, EngineId, ImageFormat, Job, JobRequest, Link } from '../core/types.ts';
 import { engine, type EngineStatus, type InfoResult } from '../engine/index.ts';
 import { useT, type Key } from '../i18n.ts';
@@ -58,6 +58,10 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
   const [attempt, setAttempt] = useState(0);
   const [fixing, setFixing] = useState(false);
   const [details, setDetails] = useState(false);
+  /** The link being read (after short links are resolved), for "Start now". */
+  const [reading, setReading] = useState<Link>();
+  /** "Start now" was tapped: let the read finish so the download can reuse it. */
+  const keepReading = useRef(false);
 
   const [tab, setTab] = useState<Tab>('video');
   const [compat, setCompat] = useState(settings.compat);
@@ -83,6 +87,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
     (async () => {
       setErr(undefined);
       setData(undefined);
+      setReading(undefined);
       let link = detect(url);
       if (link.short) {
         setPhase('resolving');
@@ -102,6 +107,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
       }
       setPhase('reading');
       setStep('sheet.reading');
+      setReading(link);
       let first: { ex: Explained; raw: string } | undefined;
       const order = forced ? [forced] : enginesFor(link, sessions.includes(link.site));
       for (const [i, eng] of order.entries()) {
@@ -128,7 +134,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
     })();
     return () => {
       alive = false;
-      void engine.cancelInfo();
+      if (!keepReading.current) void engine.cancelInfo();
     };
   }, [url, whole, forced, attempt]);
 
@@ -227,6 +233,32 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
     }
   }
 
+  // "Start now" while the link is still being read: the download waits for this read and reuses it.
+  const quickOk =
+    phase === 'reading' && step === 'sheet.reading' && !!reading && !forced && !whole && !isCollection(reading.kind) && enginesFor(reading, sessions.includes(reading.site))[0] === 'ytdlp';
+  const musicLink = !!reading && (MUSIC_SITES.has(reading.site) || reading.kind === 'song' || reading.kind === 'audio');
+  const q = settings.videoQuality;
+  const quickLabel = {
+    video: `${q === 'best' ? t('set.best') : q >= 2160 ? '4K' : q === 1440 ? '2K' : `${q}p`}${settings.compat ? ' · MP4' : ''}`,
+    audio: settings.audioFormat === 'mp3' ? `MP3 · ${settings.mp3Bitrate} kbps` : settings.audioFormat === 'm4a' ? 'M4A' : t('audio.original'),
+  };
+
+  async function quickStart(mode: 'video' | 'audio') {
+    if (!reading) return;
+    setBusy(true);
+    keepReading.current = true;
+    const spec = mode === 'audio' ? audioSpec(settings) : videoSpec(settings);
+    const title = `${siteInfo(reading.site).name} · ${KIND_LABEL[reading.kind]}`;
+    try {
+      onAdded(await engine.enqueue(buildRequest({ link: reading, engine: 'ytdlp', spec, title, thumb: previewThumb(reading), titleFromFile: true })));
+    } catch (e) {
+      keepReading.current = false;
+      onError(String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function fix(ex: Explained) {
     if (!link) return;
     if (ex.fix === 'login') {
@@ -265,7 +297,26 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
   return (
     <Sheet onClose={onClose} foot={foot} label={t('sheet.download')}>
       {phase === 'resolving' || phase === 'reading' ? (
-        <Loading text={t(phase === 'resolving' ? 'sheet.resolving' : step)} sub={phase === 'reading' && step === 'sheet.reading' ? t('sheet.reading2') : undefined} site={link?.site ?? detect(url ?? '').site} />
+        <Loading
+          text={t(phase === 'resolving' ? 'sheet.resolving' : step)}
+          sub={phase === 'reading' && step === 'sheet.reading' ? t('sheet.reading2') : undefined}
+          site={link?.site ?? detect(url ?? '').site}
+          thumb={reading ? previewThumb(reading) : undefined}
+        >
+          {quickOk ? (
+            <div className="quick">
+              <span className="muted small">{t('quick.title')}</span>
+              <div className="quick-row">
+                {(musicLink ? (['audio', 'video'] as const) : (['video', 'audio'] as const)).map((m) => (
+                  <button key={m} type="button" className="btn tonal" disabled={busy} onClick={() => quickStart(m)}>
+                    <Icon name={m === 'audio' ? 'music' : 'video'} size={18} /> {quickLabel[m]}
+                  </button>
+                ))}
+              </div>
+              <span className="muted small">{t('quick.wait')}</span>
+            </div>
+          ) : null}
+        </Loading>
       ) : null}
 
       {phase === 'error' && err ? (
@@ -557,11 +608,11 @@ function ThumbTab(p: {
   );
 }
 
-function Loading({ text, sub, site }: { text: string; sub?: string; site: string }) {
+function Loading({ text, sub, site, thumb, children }: { text: string; sub?: string; site: string; thumb?: string; children?: ReactNode }) {
   return (
     <div style={{ padding: '6px 0 10px' }} aria-busy="true">
       <div className="media">
-        <div className="thumb skel" />
+        {thumb ? <Thumb src={thumb} /> : <div className="thumb skel" />}
         <div className="stack" style={{ gap: 8, paddingTop: 4 }}>
           <div className="skel" style={{ height: 14, width: '92%' }} />
           <div className="skel" style={{ height: 14, width: '70%' }} />
@@ -576,11 +627,13 @@ function Loading({ text, sub, site }: { text: string; sub?: string; site: string
         </span>
       </div>
       <Progress value={-1} />
-      <div className="opts" style={{ marginTop: 14 }}>
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="skel" style={{ height: 56, borderRadius: 16 }} />
-        ))}
-      </div>
+      {children ?? (
+        <div className="opts" style={{ marginTop: 14 }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skel" style={{ height: 56, borderRadius: 16 }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

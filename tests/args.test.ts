@@ -90,6 +90,12 @@ describe('requests and quick templates', () => {
     expect(r.fallback).toBeUndefined();
   });
 
+  it('a download started before the link was read takes its title from the file', () => {
+    const link = detect('https://youtu.be/dQw4w9WgXcQ');
+    expect(buildRequest({ link, engine: 'ytdlp', spec: { mode: 'video' }, title: 'YouTube · Video', titleFromFile: true }).titleFromFile).toBe(true);
+    expect(buildRequest({ link, engine: 'ytdlp', spec: { mode: 'video' }, title: 't' })).not.toHaveProperty('titleFromFile');
+  });
+
   it('quick templates follow settings', () => {
     const q = quickTemplates({ ...DEFAULTS, mp3Bitrate: 128, videoQuality: 720 });
     expect(q.audio.main.args).toEqual(expect.arrayContaining(['--audio-quality', '128K']));
