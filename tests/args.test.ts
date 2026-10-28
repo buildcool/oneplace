@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatSort, galleryArgs, safeRemoteArgs, splitArgs, stripDangerous, ytdlpArgs } from '../src/core/args.ts';
-import { DEFAULTS, buildRequest, quickTemplates } from '../src/core/settings.ts';
+import { DEFAULTS, buildRequest, canAutoStart, isMusic, quickRequest, quickTemplates } from '../src/core/settings.ts';
 import { detect } from '../src/core/links.ts';
 
 const after = (args: string[], opt: string) => args[args.indexOf(opt) + 1];
@@ -102,5 +102,48 @@ describe('requests and quick templates', () => {
     expect(after(q.video.main.args, '-S')).toContain('res:720');
     expect(q.video.fallback?.engine).toBe('gallerydl');
     expect(q.thumbnail.main.dest).toBe('image');
+  });
+});
+
+describe('copied links that start by themselves', () => {
+  it('one video, reel, post or song on a known site starts', () => {
+    for (const url of [
+      'https://youtu.be/dQw4w9WgXcQ',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123',
+      'https://www.youtube.com/shorts/abcDEF12345',
+      'https://music.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://www.instagram.com/reel/C9xYz12AbCd/',
+      'https://x.com/user/status/1234567890',
+    ]) {
+      expect(canAutoStart(detect(url), false)).toBe(true);
+    }
+  });
+
+  it('playlists, channels, live streams, short links, photo-first and unknown pages open the sheet instead', () => {
+    for (const url of [
+      'https://www.youtube.com/playlist?list=PL123',
+      'https://www.youtube.com/@channel',
+      'https://www.youtube.com/live/abcDEF12345',
+      'https://fb.watch/abc123/',
+      'https://www.instagram.com/stories/someone/123/',
+      'https://example.com/news/article',
+      'https://www.netflix.com/title/80057281',
+    ]) {
+      expect(canAutoStart(detect(url), false)).toBe(false);
+    }
+    // Logged in, Instagram posts go to gallery-dl first (photos and carousels).
+    expect(canAutoStart(detect('https://www.instagram.com/p/C9xYz12AbCd/'), true)).toBe(false);
+  });
+
+  it('music links download as audio, the rest as video, both titled from the file', () => {
+    const song = quickRequest(detect('https://music.youtube.com/watch?v=dQw4w9WgXcQ'), DEFAULTS);
+    expect(song.mode).toBe('audio');
+    expect(song.titleFromFile).toBe(true);
+    expect(song.thumb).toContain('i.ytimg.com/vi/dQw4w9WgXcQ/');
+    const video = quickRequest(detect('https://youtu.be/dQw4w9WgXcQ'), DEFAULTS);
+    expect(video.mode).toBe('video');
+    expect(video.title).toBe('YouTube · Video');
+    expect(quickRequest(detect('https://youtu.be/dQw4w9WgXcQ'), DEFAULTS, 'audio').mode).toBe('audio');
+    expect(isMusic(detect('https://soundcloud.com/artist/track'))).toBe(true);
   });
 });

@@ -116,6 +116,25 @@ object Engines {
         return false
     }
 
+    /**
+     * YouTube's visionos client needs no JavaScript challenge: reading a link takes ~3.5 s instead of ~6 s
+     * (~14 s for a new player version), with the same qualities. Not with a YouTube login (that client
+     * ignores cookies), not when remote config sets YouTube options, and remote config can switch it off.
+     */
+    fun fastArgs(ctx: Context, site: String): List<String> =
+        if ((site == "youtube" || site == "ytmusic") && Config.fastYouTube(ctx) && Cookies.file(ctx, site) == null && Config.siteArgs(ctx, site).isEmpty()) {
+            listOf("--extractor-args", "youtube:player_client=visionos")
+        } else {
+            emptyList()
+        }
+
+    /** True when yt-dlp's -J output lists at least one format. */
+    private fun hasFormats(out: String): Boolean {
+        val start = out.indexOf('{')
+        if (start < 0) return false
+        return runCatching { (JSONObject(out.substring(start)).optJSONArray("formats")?.length() ?: 0) > 0 }.getOrDefault(false)
+    }
+
     fun cookieArgs(ctx: Context, site: String): List<String> =
         Cookies.file(ctx, site)?.let { listOf("--cookies", it.absolutePath) } ?: emptyList()
 
@@ -132,7 +151,10 @@ object Engines {
                 Runner.gallery(ctx, id, args + cookieArgs(ctx, site) + url, keepOut = true)
             } else {
                 val extra = listOf("--cache-dir", cacheDir(ctx)) + cookieArgs(ctx, site) + Config.siteArgs(ctx, site)
-                Runner.ytdlp(ctx, id, args + extra + url, keepOut = true)
+                val fast = if (keep) fastArgs(ctx, site) else emptyList()
+                val first = Runner.ytdlp(ctx, id, args + extra + fast + url, keepOut = true)
+                // The quick client can miss a video (or YouTube can change it): then ask the usual clients.
+                if (fast.isEmpty() || first.code == -9 || hasFormats(first.out)) first else Runner.ytdlp(ctx, id, args + extra + url, keepOut = true)
             }
             if (r.code == -9) throw CancellationException("canceled")
             val out = r.out.trim()

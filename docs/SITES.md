@@ -5,7 +5,7 @@ Status from tests in Termux with the same engine arguments the app uses (`npm ru
 
 | Site | Status | Notes |
 |---|---|---|
-| YouTube (videos, Shorts) | ✅ Works | 144p–4K, H.264/VP9; MP3 with square cover + tags verified. Reading a link ~6 s (~14 s the first time YouTube serves a new player version); downloads start ~1.5 s after tapping Download. |
+| YouTube (videos, Shorts) | ✅ Works | 144p–4K, H.264/VP9; MP3 with square cover + tags verified. Reading a link ~3.5–4 s with yt-dlp's no-JavaScript client (visionos; same qualities, audio and music tags; the usual clients are the automatic fallback); downloads start ~1.5 s after tapping Download. |
 | YouTube Music | ✅ Works | Same engine as YouTube; tags from YT Music metadata |
 | Instagram reels / video posts | ✅ Most | yt-dlp, no login (720p). Some public reels need a login: since yt-dlp 2026.07.04 the main no-login method needs browser impersonation (curl_cffi), which isn't available on Android, so yt-dlp falls back to the reel's web page. Tested 2026-10-27: 4 of 4 public reels worked; deleted posts also end in "log in". |
 | Instagram photos, carousels, stories, highlights | 🔑 Login | gallery-dl gets "redirect to login page" without a login → More → Site logins → Instagram |

@@ -8,5 +8,6 @@
     <string name="quick_video">OnePlace · Video</string>
     <string name="quick_audio">OnePlace · MP3</string>
     <string name="quick_thumb">OnePlace · Thumbnail</string>
+    <string name="tile_copied">Download copied link</string>
     <string name="login_done">Done</string>
 </resources>

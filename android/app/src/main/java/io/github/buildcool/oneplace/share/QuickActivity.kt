@@ -1,6 +1,7 @@
 package io.github.buildcool.oneplace.share
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -15,18 +16,28 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * "OnePlace · Video / · MP3 / · Thumbnail" in the share menu: queue the link with the saved defaults
- * and show a toast, without opening the app.
+ * "OnePlace · Video / · MP3 / · Thumbnail" in the share menu, and the "Download copied link" tile:
+ * queue the link with the saved defaults and show a toast, without opening the app.
  */
 class QuickActivity : ComponentActivity() {
-    private var pendingUrl: String? = null
+    companion object {
+        /** From the Quick Settings tile: download the copied link. */
+        const val ACTION_COPIED = "io.github.buildcool.oneplace.COPIED"
 
-    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val url = pendingUrl
-        if (granted && url != null) go(url) else finish()
+        /** Like isMusic() in src/core/settings.ts: these copied links download as audio. */
+        private val MUSIC_SITES = setOf("ytmusic", "soundcloud", "jiosaavn", "bandcamp", "mixcloud", "audiomack")
     }
 
-    private val action: String
+    private var pending: Pair<String, String>? = null
+    private var waitingForClipboard = false
+
+    private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val p = pending
+        if (granted && p != null) go(p.first, p.second) else finish()
+    }
+
+    /** Which share entry was picked. */
+    private val shareAction: String
         get() = when (intent.component?.className?.substringAfterLast('.')) {
             "QuickAudio" -> "audio"
             "QuickThumb" -> "thumbnail"
@@ -35,23 +46,47 @@ class QuickActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.action == ACTION_COPIED) {
+            // Android hands out the clipboard only once this window has focus (onWindowFocusChanged).
+            waitingForClipboard = true
+            window.decorView.postDelayed({ if (waitingForClipboard) finish() }, 3000)
+            return
+        }
         val url = Shares.textFrom(intent)?.let(Shares::firstUrl)
         if (url == null) {
             toast(Config.text(this, "noLink", "No link found in what you shared"))
             finish()
             return
         }
+        start(url, shareAction)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus || !waitingForClipboard) return
+        waitingForClipboard = false
+        val clip = runCatching { getSystemService(ClipboardManager::class.java)?.primaryClip }.getOrNull()
+        val url = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()?.let(Shares::firstUrl)
+        if (url == null) {
+            toast(Config.text(this, "noCopied", "Copy a video link first, then tap the tile"))
+            finish()
+            return
+        }
+        start(url, if (Shares.siteOf(url) in MUSIC_SITES) "audio" else "video")
+    }
+
+    private fun start(url: String, action: String) {
         if (Build.VERSION.SDK_INT < 29 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) {
-            pendingUrl = url
+            pending = url to action
             storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             return
         }
-        go(url)
+        go(url, action)
     }
 
-    private fun go(url: String) {
+    private fun go(url: String, action: String) {
         val q = Config.quick(this, action)
         if (q == null) {
             finish()

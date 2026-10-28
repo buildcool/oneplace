@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { explain } from './core/errors.ts';
 import { detect, findUrls } from './core/links.ts';
 import { EMPTY_CONFIG, loadRemoteConfig, type RemoteConfig } from './core/remoteConfig.ts';
-import { buildRequest, loadSettings, quickTemplates, saveSettings, videoSpec, type Settings } from './core/settings.ts';
+import { buildRequest, canAutoStart, loadSettings, quickRequest, quickTemplates, saveSettings, videoSpec, type Settings } from './core/settings.ts';
 import { SITES } from './core/sites.ts';
 import type { Job, SiteId } from './core/types.ts';
 import { checkForUpdate, type Update } from './core/update.ts';
@@ -29,6 +29,9 @@ type Tab = 'home' | 'downloads' | 'library' | 'more';
 const native = Capacitor.isNativePlatform();
 /** Pixels rarely kill background work; every other maker (Xiaomi, Oppo, Vivo, Realme, Samsung, Lava…) may. */
 const PIXEL = /^google$/i;
+
+/** Copied this recently = copied to download it now. */
+const FRESH_CLIP_MS = 5 * 60_000;
 
 function upsert(list: Job[], j: Job): Job[] {
   const i = list.findIndex((x) => x.id === j.id);
@@ -176,6 +179,7 @@ export default function App() {
         quick: quickTemplates(settings),
         siteArgs: remote.siteArgs,
         minYtDlp: remote.minYtDlp,
+        fastYouTube: !remote.disabled.includes('fastYouTube'),
         strings: nativeStrings(settings.lang),
       })
       .catch(() => {});
@@ -189,17 +193,41 @@ export default function App() {
       .catch(() => {});
   }, [status?.build, status?.abis, settings.appChannel, settings.autoAppUpdate, settings.skippedBuild]);
 
-  // Offer a copied link when the app comes to the front.
+  // A link copied just before opening OnePlace starts downloading at once; older ones are offered on Home.
+  // (Since Android 10 apps can read the clipboard only while they are in front, so this is the soonest.)
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
   const checkClipboard = useCallback(async () => {
-    if (!settings.clipboardChip || !native) return;
+    if (!native || (!settings.clipboardChip && !settings.autoCopied)) return;
     try {
-      const { value } = await Clipboard.read();
-      const url = findUrls(value ?? '')[0];
-      if (url && url !== lastClip.current) setClip(url);
+      const { text, at } = await engine.clip();
+      const url = findUrls(text ?? '')[0];
+      if (!url || url === lastClip.current) return;
+      if (settings.autoCopied && at > 0 && Date.now() - at < FRESH_CLIP_MS && (await startCopied(url))) return;
+      if (settings.clipboardChip) setClip(url);
     } catch {
       // clipboard not readable right now
     }
-  }, [settings.clipboardChip]);
+  }, [settings.clipboardChip, settings.autoCopied]);
+
+  /** Download a just-copied link with the usual settings. False when it needs the sheet (playlists, photos…). */
+  const startCopied = async (url: string): Promise<boolean> => {
+    const link = detect(url);
+    if (!canAutoStart(link, sessionsRef.current.includes(link.site))) return false;
+    lastClip.current = url;
+    writeLocal('op.clip', url);
+    const tr = (key: Key) => translate(settingsRef.current.lang, key);
+    try {
+      const job = await engine.enqueue(quickRequest(link, settingsRef.current));
+      setJobs((list) => upsert(list, job));
+      say(tr('auto.started'), { label: tr('tab.downloads'), run: () => setTab('downloads') });
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (!settings.onboarded) return;
@@ -397,6 +425,7 @@ export default function App() {
         }}
         onBattery={() => void engine.openBatterySettings()}
         onNotifications={() => void engine.requestNotifications().then(setNotif)}
+        onAddTile={() => engine.addTile().catch(() => false)}
         onPage={setPage}
       />
     );

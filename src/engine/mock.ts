@@ -151,6 +151,8 @@ export const mockEngine: Engine = {
   requestNotifications: async () => true,
   systemColors: async () => ({}),
   pendingShare: async () => undefined,
+  clip: async () => ({ at: 0 }),
+  addTile: async () => false,
   debug: async () => ({ queueRunning: false, mock: true }),
   onJob(cb) {
     jobListeners.add(cb);

@@ -191,13 +191,16 @@ object Queue {
         val dir = File(ctx.cacheDir, "jobs/${job.id}")
         fun out() = File(dir, if (job.usedFallback) "b" else "a")
         // Read once: start from the sheet's answer (waiting for it while the sheet is still reading).
-        val info = if (job.template.engine == "ytdlp" && !job.isPlaylist && !job.usedFallback) InfoCache.get(ctx, job.url) else null
-        var res = execute(ctx, job, job.template, out(), info)
+        val single = job.template.engine == "ytdlp" && !job.isPlaylist && !job.usedFallback
+        val info = if (single) InfoCache.get(ctx, job.url) else null
+        // Without one, YouTube's quick client first (see Engines.fastArgs).
+        val fast = single && info == null && Engines.fastArgs(ctx, job.site).isNotEmpty()
+        var res = execute(ctx, job, job.template, out(), info, fast)
         if (job.status == "canceled") return cleanup(dir)
         if (job.status == "queued") return // paused by the system; resumes later from the .part files
-        // The download links in that answer can expire: read the link itself once.
-        if (info != null && job.files.isEmpty() && res.code != 0) {
-            InfoCache.drop(ctx, job.url)
+        // The download links in that answer can expire, and the quick client can miss a video: read the link the usual way once.
+        if ((info != null || fast) && job.files.isEmpty() && res.code != 0) {
+            if (info != null) InfoCache.drop(ctx, job.url)
             res = execute(ctx, job, job.template, out())
             if (job.status == "canceled") return cleanup(dir)
             if (job.status == "queued") return
@@ -263,7 +266,7 @@ object Queue {
     /** yt-dlp's record of finished playlist items, so resumes and retries skip them. */
     private fun archiveOf(ctx: Context, id: String) = File(File(ctx.filesDir, "archives").apply { mkdirs() }, "$id.txt")
 
-    private suspend fun execute(ctx: Context, job: Job, t: Template, dir: File, info: File? = null): Runner.Result {
+    private suspend fun execute(ctx: Context, job: Job, t: Template, dir: File, info: File? = null, fast: Boolean = false): Runner.Result {
         dir.mkdirs()
         job.progress = -1.0
         job.eta = -1
@@ -297,7 +300,8 @@ object Queue {
                     listOf("-P", dir.absolutePath, "--cache-dir", Engines.cacheDir(ctx), "--progress-template", Progress.TEMPLATE) +
                     // --print would make yt-dlp quiet; --no-quiet keeps the progress lines we read.
                     listOf("--no-quiet", "--print", "after_move:${Progress.FILE_MARK} %(filepath)s") +
-                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) + target
+                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) +
+                    (if (fast) Engines.fastArgs(ctx, job.site) else emptyList()) + target
                 Runner.ytdlp(ctx, job.id, args) { line ->
                     if (line.startsWith(Progress.FILE_MARK)) {
                         publishNow(ctx, job, File(line.removePrefix(Progress.FILE_MARK).trim()), deleteSource = true)

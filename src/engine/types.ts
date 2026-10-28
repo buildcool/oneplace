@@ -37,6 +37,8 @@ export interface NativeConfig {
   quick: Record<QuickAction, QuickTemplate>;
   siteArgs: Record<string, string[]>;
   minYtDlp?: string;
+  /** YouTube's quick client first (no JavaScript challenge); remote config can switch it off. */
+  fastYouTube: boolean;
   /** Localised notification texts. */
   strings: Record<string, string>;
 }
@@ -81,6 +83,10 @@ export interface Engine {
   debug(): Promise<Record<string, unknown>>;
   /** Text shared to the app before the UI was ready (cold start from the share sheet). */
   pendingShare(): Promise<string | undefined>;
+  /** The copied text and when it was copied (ms since 1970; 0 when the phone does not say). */
+  clip(): Promise<{ text?: string; at: number }>;
+  /** Ask Android to add the "Download copied link" Quick Settings tile (Android 13+). False: add it by hand. */
+  addTile(): Promise<boolean>;
   onJob(cb: (job: Job) => void): () => void;
   onShared(cb: (text: string) => void): () => void;
   onUpdateProgress(cb: (p: UpdateProgress) => void): () => void;

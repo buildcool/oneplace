@@ -4,7 +4,7 @@ import { bytes } from '../core/format.ts';
 import { parseGallery, parseJson, parseYtInfo, type AudioOption, type Gallery, type Media, type VideoOption, type YtInfo } from '../core/formats.ts';
 import { infoArgs } from '../core/info.ts';
 import { detect, drmService, findUrls, isCollection } from '../core/links.ts';
-import { audioSpec, buildRequest, videoSpec, type Settings } from '../core/settings.ts';
+import { audioSpec, buildRequest, isMusic, quickRequest, videoSpec, type Settings } from '../core/settings.ts';
 import { KIND_LABEL, enginesFor, needsLogin, siteInfo } from '../core/sites.ts';
 import { previewThumb, thumbChoices } from '../core/thumbs.ts';
 import type { DownloadSpec, EngineId, ImageFormat, Job, JobRequest, Link } from '../core/types.ts';
@@ -37,7 +37,6 @@ interface Props {
   onError: (text: string) => void;
 }
 
-const MUSIC_SITES = new Set(['ytmusic', 'soundcloud', 'jiosaavn', 'bandcamp', 'mixcloud', 'audiomack']);
 const VAGUE = new Set(['unknown', 'novideo', 'unsupported']);
 const RES_CHOICES = [2160, 1440, 1080, 720, 480, 360] as const;
 
@@ -149,8 +148,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
   useEffect(() => {
     if (!data) return;
     const m = data.raw ? parseYtInfo(data.raw, settings.compat) : undefined;
-    const musicy = MUSIC_SITES.has(data.link.site) || data.link.kind === 'song' || data.link.kind === 'audio';
-    setTab(data.gallery ? 'photos' : m && !m.video.length && !m.playlist ? 'audio' : musicy ? 'audio' : 'video');
+    setTab(data.gallery ? 'photos' : m && !m.video.length && !m.playlist ? 'audio' : isMusic(data.link) ? 'audio' : 'video');
     if (m) setVKey(pickVideo(m.video, settings));
     setAKey(pickAudio(settings));
     if (data.gallery) setPicked(new Set(data.gallery.items.map((i) => i.num)));
@@ -236,7 +234,7 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
   // "Start now" while the link is still being read: the download waits for this read and reuses it.
   const quickOk =
     phase === 'reading' && step === 'sheet.reading' && !!reading && !forced && !whole && !isCollection(reading.kind) && enginesFor(reading, sessions.includes(reading.site))[0] === 'ytdlp';
-  const musicLink = !!reading && (MUSIC_SITES.has(reading.site) || reading.kind === 'song' || reading.kind === 'audio');
+  const musicLink = !!reading && isMusic(reading);
   const q = settings.videoQuality;
   const quickLabel = {
     video: `${q === 'best' ? t('set.best') : q >= 2160 ? '4K' : q === 1440 ? '2K' : `${q}p`}${settings.compat ? ' · MP4' : ''}`,
@@ -247,10 +245,8 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
     if (!reading) return;
     setBusy(true);
     keepReading.current = true;
-    const spec = mode === 'audio' ? audioSpec(settings) : videoSpec(settings);
-    const title = `${siteInfo(reading.site).name} · ${KIND_LABEL[reading.kind]}`;
     try {
-      onAdded(await engine.enqueue(buildRequest({ link: reading, engine: 'ytdlp', spec, title, thumb: previewThumb(reading), titleFromFile: true })));
+      onAdded(await engine.enqueue(quickRequest(reading, settings, mode)));
     } catch (e) {
       keepReading.current = false;
       onError(String((e as Error)?.message ?? e));

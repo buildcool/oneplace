@@ -52,6 +52,7 @@ const S = {
   'sheet.resolving': ['Opening short link…', 'Short link khol rahe…', 'छोटा लिंक खोल रहे हैं…'],
   'sheet.reading': ['Reading link…', 'Link padh rahe…', 'लिंक पढ़ रहे हैं…'],
   'sheet.reading2': ['Finding every quality', 'Saari qualities dhoondh rahe', 'सारी क्वालिटी ढूँढ रहे हैं'],
+  'auto.started': ['Downloading the link you copied', 'Copy kiya link download ho raha hai', 'कॉपी किया लिंक डाउनलोड हो रहा है'],
   'quick.title': ['Start now with your usual settings', 'Abhi shuru karo, apni usual settings se', 'अपनी सामान्य सेटिंग्स से अभी शुरू करें'],
   'quick.wait': ['Or wait a moment to pick the quality and size.', 'Ya thoda ruko aur quality aur size chuno.', 'या थोड़ा रुककर क्वालिटी और साइज़ चुनें।'],
   'sheet.tryingPhotos': ['Looking for photos…', 'Photos dhoondh rahe…', 'फ़ोटो ढूँढ रहे हैं…'],
@@ -286,6 +287,24 @@ const S = {
   'set.sites': ['Supported sites', 'Supported sites', 'सपोर्टेड साइट्स'],
   'set.about': ['About & privacy', 'About & privacy', 'जानकारी और प्राइवेसी'],
   'set.test': ['Engine test', 'Engine test', 'इंजन टेस्ट'],
+  'set.autoCopied': ['Start copied links automatically', 'Copy kiye links apne aap shuru karo', 'कॉपी किए लिंक अपने आप शुरू करें'],
+  'set.autoCopiedSub': [
+    'Copy a video link, open OnePlace: it starts downloading with your usual settings.',
+    'Video link copy karo, OnePlace kholo: apni usual settings se download shuru.',
+    'वीडियो लिंक कॉपी करें, OnePlace खोलें: आपकी सामान्य सेटिंग्स से डाउनलोड शुरू।',
+  ],
+  'set.tile': ['"Download copied link" tile', '"Copy kiya link download" tile', '"कॉपी किया लिंक डाउनलोड" टाइल'],
+  'set.tileSub': [
+    'Add it to Quick Settings: copy a link anywhere, pull down, tap the tile.',
+    'Quick Settings mein jodo: kahin bhi link copy karo, neeche kheencho, tile dabao.',
+    'क्विक सेटिंग्स में जोड़ें: कहीं भी लिंक कॉपी करें, नीचे खींचें, टाइल दबाएँ।',
+  ],
+  'set.tileAdded': ['Added. Copy a link, pull down Quick Settings and tap it.', 'Jud gaya. Link copy karo, Quick Settings kholo aur dabao.', 'जुड़ गया। लिंक कॉपी करें, क्विक सेटिंग्स खोलें और दबाएँ।'],
+  'set.tileManual': [
+    'Pull down Quick Settings, tap the pencil (edit) and drag "Download copied link" up.',
+    'Quick Settings kholo, pencil (edit) dabao aur "Download copied link" upar kheencho.',
+    'क्विक सेटिंग्स खोलें, पेंसिल (edit) दबाएँ और "Download copied link" को ऊपर खींचें।',
+  ],
   'set.report': ['Report a problem', 'Problem batao', 'समस्या बताएँ'],
 
   'sites.works': ['Works', 'Chalta hai', 'चलता है'],
@@ -383,6 +402,7 @@ const S = {
   'n.retry': ['Retry', 'Retry', 'फिर से'],
   'n.added': ['Added to OnePlace', 'OnePlace mein add hua', 'OnePlace में जोड़ा'],
   'n.noLink': ['No link found in what you shared', 'Share kiye text mein link nahi mila', 'शेयर किए टेक्स्ट में लिंक नहीं मिला'],
+  'n.noCopied': ['Copy a video link first, then tap the tile', 'Pehle video link copy karo, phir tile dabao', 'पहले वीडियो लिंक कॉपी करें, फिर टाइल दबाएँ'],
   'n.preparing': [
     'Getting the engine ready (first time only, up to a minute)',
     'Engine ready ho raha (sirf pehli baar, ek minute tak)',

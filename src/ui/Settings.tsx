@@ -26,6 +26,7 @@ interface Props {
   onCheckApp: () => Promise<string>;
   onBattery: () => void;
   onNotifications: () => void;
+  onAddTile: () => Promise<boolean>;
   onPage: (p: Page) => void;
 }
 
@@ -36,6 +37,7 @@ export function Settings(p: Props) {
   const [engineBusy, setEngineBusy] = useState(false);
   const [appMsg, setAppMsg] = useState<string>();
   const [appBusy, setAppBusy] = useState(false);
+  const [tileMsg, setTileMsg] = useState<string>();
   const qualities: VideoQuality[] = ['best', 2160, 1440, 1080, 720, 480, 360];
 
   return (
@@ -109,12 +111,19 @@ export function Settings(p: Props) {
           </div>
           <SwitchRow icon="globe" title={t('set.wifiOnly')} on={s.wifiOnly} onChange={(wifiOnly) => p.update({ wifiOnly })} />
           <SwitchRow icon="paste" title={t('set.clipboard')} on={s.clipboardChip} onChange={(clipboardChip) => p.update({ clipboardChip })} />
+          <SwitchRow icon="download" title={t('set.autoCopied')} sub={t('set.autoCopiedSub')} on={s.autoCopied} onChange={(autoCopied) => p.update({ autoCopied })} />
           <SwitchRow icon="check" title={t('sheet.remember')} on={s.rememberChoice} onChange={(rememberChoice) => p.update({ rememberChoice })} />
         </div>
 
         <SectionTitle>{t('set.share')}</SectionTitle>
         <div className="card group">
           <SwitchRow icon="bolt" title={t('set.quick')} sub={t('set.quickSub')} on={s.quickTargets} onChange={(quickTargets) => p.update({ quickTargets })} />
+          <Row
+            icon="grid"
+            title={t('set.tile')}
+            sub={tileMsg ?? t('set.tileSub')}
+            onClick={async () => setTileMsg((await p.onAddTile()) ? t('set.tileAdded') : t('set.tileManual'))}
+          />
         </div>
 
         <SectionTitle>{t('set.accounts')}</SectionTitle>

@@ -1,6 +1,7 @@
 import { galleryArgs, ytdlpArgs } from './args.ts';
-import { enginesFor } from './sites.ts';
-import type { AudioFormat, DownloadSpec, EngineId, JobRequest, JobTemplate, Link, Mode } from './types.ts';
+import { KIND_LABEL, enginesFor, siteInfo } from './sites.ts';
+import { previewThumb } from './thumbs.ts';
+import type { AudioFormat, DownloadSpec, EngineId, JobRequest, JobTemplate, Link, LinkKind, Mode } from './types.ts';
 
 export type Lang = 'en' | 'hinglish' | 'hi';
 export type VideoQuality = 'best' | 2160 | 1440 | 1080 | 720 | 480 | 360;
@@ -25,6 +26,8 @@ export interface Settings {
   appChannel: 'stable' | 'beta';
   autoAppUpdate: boolean;
   clipboardChip: boolean;
+  /** Opening OnePlace right after copying a link starts downloading it with the usual settings. */
+  autoCopied: boolean;
   /** "OnePlace · Video / · MP3 / · Thumbnail" entries in the share menu. */
   quickTargets: boolean;
   /** Remember the last quality picked in the sheet and preselect it. */
@@ -53,6 +56,7 @@ export const DEFAULTS: Settings = {
   appChannel: 'stable',
   autoAppUpdate: true,
   clipboardChip: true,
+  autoCopied: true,
   quickTargets: true,
   rememberChoice: true,
   onboarded: false,
@@ -128,6 +132,36 @@ export function buildRequest(o: {
     ...(o.expectedBytes ? { expectedBytes: Math.round(o.expectedBytes) } : {}),
     ...(o.titleFromFile ? { titleFromFile: true } : {}),
   };
+}
+
+const MUSIC_SITES = new Set(['ytmusic', 'soundcloud', 'jiosaavn', 'bandcamp', 'mixcloud', 'audiomack']);
+
+/** Links people usually want as audio. */
+export const isMusic = (link: Pick<Link, 'site' | 'kind'>) => MUSIC_SITES.has(link.site) || link.kind === 'song' || link.kind === 'audio';
+
+const AUTO_KINDS = new Set<LinkKind>(['video', 'short', 'reel', 'post', 'song', 'audio']);
+
+/**
+ * A copied link that is clearly one video, song or post on a known site, so OnePlace may start it
+ * without asking. Playlists, profiles, stories, live streams, short links and other pages open the sheet.
+ */
+export function canAutoStart(link: Link, loggedIn: boolean): boolean {
+  return link.site !== 'other' && !link.short && AUTO_KINDS.has(link.kind) && enginesFor(link, loggedIn)[0] === 'ytdlp';
+}
+
+/**
+ * A download with the usual settings, started before the link has been read ("Start now" in the sheet,
+ * copied links). The real title comes from the downloaded file's name.
+ */
+export function quickRequest(link: Link, s: Settings, mode: 'video' | 'audio' = isMusic(link) ? 'audio' : 'video'): JobRequest {
+  return buildRequest({
+    link,
+    engine: 'ytdlp',
+    spec: mode === 'audio' ? audioSpec(s) : videoSpec(s),
+    title: `${siteInfo(link.site).name} · ${KIND_LABEL[link.kind]}`,
+    thumb: previewThumb(link),
+    titleFromFile: true,
+  });
 }
 
 export type QuickAction = 'video' | 'audio' | 'thumbnail';

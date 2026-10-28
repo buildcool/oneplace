@@ -1,10 +1,13 @@
 package io.github.buildcool.oneplace
 
 import android.Manifest
+import android.app.StatusBarManager
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -30,6 +33,7 @@ import io.github.buildcool.oneplace.queue.DownloadService
 import io.github.buildcool.oneplace.queue.JobStore
 import io.github.buildcool.oneplace.queue.Keepalive
 import io.github.buildcool.oneplace.queue.Queue
+import io.github.buildcool.oneplace.share.CopiedLinkTile
 import io.github.buildcool.oneplace.storage.Saver
 import io.github.buildcool.oneplace.update.AppUpdater
 import java.lang.ref.WeakReference
@@ -282,6 +286,32 @@ class EnginePlugin : Plugin() {
             }
         }
         call.resolve()
+    }
+
+    /** The copied text and when it was copied. Android lets apps read it only while they are in front. */
+    @PluginMethod
+    fun clip(call: PluginCall) {
+        val clip = runCatching { app.getSystemService(ClipboardManager::class.java)?.primaryClip }.getOrNull()
+        val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(app)?.toString()
+        val at = if (Build.VERSION.SDK_INT >= 26) clip?.description?.timestamp ?: 0L else 0L
+        call.resolve(JSObject().put("text", text).put("at", at))
+    }
+
+    /** Android 13+ can add the Quick Settings tile after one confirmation; older phones add it by hand. */
+    @PluginMethod
+    fun addTile(call: PluginCall) {
+        if (Build.VERSION.SDK_INT < 33) return call.resolve(JSObject().put("value", false))
+        val sbm = app.getSystemService(StatusBarManager::class.java) ?: return call.resolve(JSObject().put("value", false))
+        sbm.requestAddTileService(
+            ComponentName(app, CopiedLinkTile::class.java),
+            app.getString(R.string.tile_copied),
+            Icon.createWithResource(app, R.drawable.ic_stat_download),
+            app.mainExecutor,
+        ) { result ->
+            val added = result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED ||
+                result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
+            call.resolve(JSObject().put("value", added))
+        }
     }
 
     @PluginMethod

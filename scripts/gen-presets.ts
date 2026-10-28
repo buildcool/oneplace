@@ -15,6 +15,7 @@ const cfg: NativeConfig = {
   quickTargets: DEFAULTS.quickTargets,
   quick: quickTemplates(DEFAULTS),
   siteArgs: {},
+  fastYouTube: true,
   strings: nativeStrings('en'),
 };
 mkdirSync(dirname(out), { recursive: true });

@@ -106,6 +106,18 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Quick Settings tile: download the copied link from any app with one tap. -->
+        <service
+            android:name=".share.CopiedLinkTile"
+            android:icon="@drawable/ic_stat_download"
+            android:label="@string/tile_copied"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Settings → Site logins: the site's own login page; cookies are saved for the engines. -->
         <activity
             android:name=".login.LoginActivity"

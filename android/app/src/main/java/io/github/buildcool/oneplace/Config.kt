@@ -39,6 +39,7 @@ object Config {
     fun autoEngineUpdate(ctx: Context) = get(ctx).optBoolean("autoEngineUpdate", true)
     fun quickTargets(ctx: Context) = get(ctx).optBoolean("quickTargets", true)
     fun minYtDlp(ctx: Context): String? = get(ctx).optString("minYtDlp").ifBlank { null }
+    fun fastYouTube(ctx: Context) = get(ctx).optBoolean("fastYouTube", true)
     fun siteArgs(ctx: Context, site: String): List<String> = get(ctx).optJSONObject("siteArgs")?.optJSONArray(site).strings()
 
     /** Localised text for notifications and toasts. */
