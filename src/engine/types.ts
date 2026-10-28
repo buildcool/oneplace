@@ -19,6 +19,8 @@ export interface EngineStatus {
   build: number;
   /** Phone maker, for the battery-optimisation helper. */
   maker: string;
+  /** Signed with buildcool's release key (copies built by others are not). */
+  official?: boolean;
 }
 
 export interface InfoResult {

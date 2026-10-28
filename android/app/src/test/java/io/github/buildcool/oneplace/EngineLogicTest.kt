@@ -119,4 +119,11 @@ class EngineLogicTest {
         assertEquals(listOf("p0.json", "p1.json", "p2.json", "p3.json"), dir.list()!!.sorted())
         dir.deleteRecursively()
     }
+
+    @Test
+    fun officialCheckComparesTheCertificateFingerprint() {
+        assertEquals("0FFF10", Official.hex(byteArrayOf(0x0F, -1, 0x10)))
+        assertEquals(64, Official.CERT_SHA256.length)
+        assertTrue(Official.CERT_SHA256.all { it in '0'..'9' || it in 'A'..'F' })
+    }
 }

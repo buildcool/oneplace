@@ -1,5 +1,7 @@
 # OnePlace
 
+**Made by [buildcool](https://github.com/buildcool).** Official builds only from [Releases](https://github.com/buildcool/oneplace/releases).
+
 Download **videos, music, photos and thumbnails** from YouTube, YouTube Music, Instagram, Facebook, X, TikTok, Reddit, Pinterest, SoundCloud, JioSaavn and 1,000+ other sites, in every quality the site offers.
 
 - **Share → download in 2 taps** from any app, or use the 1-tap share targets **OnePlace · Video / · MP3 / · Thumbnail**.
@@ -42,4 +44,6 @@ There is no Android SDK on the phone: every push to `main` is built and signed b
 
 Download only what you have the right to. Respect creators and each site's terms. OnePlace never supports DRM-protected content.
 
-Licence: GPL-3.0-or-later (youtubedl-android is GPL-3.0). yt-dlp is Unlicense, gallery-dl GPL-2.0, FFmpeg LGPL/GPL, Python PSF, QuickJS MIT.
+Copyright (C) 2026 buildcool. Licence: GPL-3.0-or-later **with additional terms** ([NOTICE](NOTICE)): every copy must keep the "Made by buildcool" credit, and modified versions must use their own name, application id and icon and say they are modified. The names OnePlace and buildcool and the logo are not licensed: see [TRADEMARKS.md](TRADEMARKS.md). OnePlace has to stay under the GPL because it includes youtubedl-android (GPL-3.0).
+
+Bundled engines: yt-dlp (Unlicense), gallery-dl (GPL-2.0), FFmpeg (LGPL/GPL), Python (PSF), QuickJS (MIT).

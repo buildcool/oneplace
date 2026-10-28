@@ -11,7 +11,7 @@ export function reportUrl(o: { site?: string; kind?: string; error?: string; sta
     `**Site**: ${o.site ?? '?'}${o.kind ? ` (${o.kind})` : ''}`,
   ];
   if (s) {
-    lines.push(`**App**: ${s.appVersion} (build ${s.build}) · Android SDK ${s.sdk} · ${s.abis[0] ?? '?'}`);
+    lines.push(`**App**: ${s.appVersion} (build ${s.build}, ${s.official ? 'official' : 'unofficial'}) · Android SDK ${s.sdk} · ${s.abis[0] ?? '?'}`);
     lines.push(`**yt-dlp**: ${s.ytdlp ?? '?'} · **gallery-dl**: ${s.gallerydl ?? '?'}`);
   }
   lines.push('', '**Link** (optional, leave out private links):', '');

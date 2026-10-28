@@ -21,6 +21,9 @@ export function Onboarding({ onDone, onNotifications, onBattery }: Props) {
   const last = i === slides.length - 1;
   return (
     <div className="onboard" role="dialog" aria-modal="true">
+      <div className="onboard-brand">
+        <b>OnePlace</b> <span>by buildcool</span>
+      </div>
       <div className="art">
         <div className="bubble" key={i}>
           <Icon name={s.icon} size={76} />

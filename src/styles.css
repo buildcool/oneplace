@@ -172,6 +172,44 @@ img {
   letter-spacing: -0.03em;
 }
 
+/* The maker's tag next to the name (Home, onboarding, About) */
+.logo-by,
+.onboard-brand span {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.logo-by {
+  align-self: flex-end;
+  margin: 0 0 4px -4px;
+}
+
+.onboard-brand {
+  text-align: center;
+  font-size: 15px;
+}
+
+.credit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.credit .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.credit-foot {
+  text-align: center;
+  margin: 0 0 24px;
+}
+
 .page {
   max-width: 720px;
   margin: 0 auto;
@@ -333,6 +371,10 @@ img {
 
 .banner.warn {
   background: var(--warn-soft);
+}
+
+.banner.good {
+  background: var(--good-soft);
 }
 
 .banner.bad {

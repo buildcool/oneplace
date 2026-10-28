@@ -17,11 +17,15 @@ import kotlinx.coroutines.sync.withLock
  * yt-dlp's cache of YouTube's preprocessed player: QuickJS then solves YouTube's JS challenge in ~1 s
  * instead of ~8 s once a player version has been seen. yt-dlp leaves that cache off because each
  * player is ~4 MB and old ones are never deleted, so the old ones are deleted here. It also checks
- * yt-dlp's guessed cover images at once instead of one by one (up to ~5 s saved per MP3).
+ * yt-dlp's guessed cover images at once instead of one by one (up to ~5 s saved per MP3), and can
+ * start ahead of time and wait for its command line (Runner.prepareSpare).
  */
 object FastStart {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
+
+    /** Starts the unpacked yt-dlp in "wait for the command line on stdin" mode (Runner's spare). */
+    const val WARM = "--oneplace-warm"
 
     private const val READY = ".ready"
     private const val SOLVER_CACHE = "challenge-solver"
@@ -31,13 +35,16 @@ object FastStart {
     private const val UNZIP = "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])"
 
     private val MAIN = """
-        # Written by OnePlace. Starts yt-dlp like its zip does, with two speed-ups:
+        # Written by OnePlace. Starts yt-dlp like its zip does, with a few speed-ups:
         # - YouTube links: yt-dlp's cache of the preprocessed player is switched on (OnePlace deletes old players).
         # - Cover images: yt-dlp tries its guessed "best" thumbnails one by one, and for older YouTube videos
         #   and many music tracks most of them do not exist (~1 s each on a phone). Check them all at once.
         import sys
 
-        if any('youtu' in a for a in sys.argv[1:]):
+        # Started ahead of time by OnePlace: load everything now, take the command line from stdin later.
+        WARM = sys.argv[1:] == ['--oneplace-warm']
+
+        if WARM or any('youtu' in a for a in sys.argv[1:]):
             try:
                 from yt_dlp.extractor.youtube.jsc._builtin.ejs import EJSBaseJCP
                 EJSBaseJCP._ENABLE_PREPROCESSED_PLAYER_CACHE = True
@@ -91,7 +98,17 @@ object FastStart {
             pass
 
         if __name__ == '__main__':
-            yt_dlp.main()
+            if WARM:
+                import json
+
+                line = sys.stdin.readline()
+                if not line.strip():
+                    sys.exit(0)
+                argv = json.loads(line)
+                sys.argv = sys.argv[:1] + argv
+                yt_dlp.main(argv)
+            else:
+                yt_dlp.main()
     """.trimIndent() + "\n"
 
     private fun base(ctx: Context) = File(ctx.noBackupFilesDir, "ytdlp-fast")
@@ -116,7 +133,18 @@ object FastStart {
         val players = File(Engines.cacheDir(ctx), SOLVER_CACHE)
         prunePlayers(players)
         val zip = Runner.Paths(ctx).ytdlp
-        if (!zip.isFile || current(ctx) != null) return@withLock
+        if (!zip.isFile) return@withLock
+        current(ctx)?.let { ready ->
+            // A new OnePlace version can bring a new __main__.py for the same yt-dlp.
+            val main = File(ready, "__main__.py")
+            if (runCatching { main.readText() }.getOrNull() != MAIN) {
+                val tmp = File(ready, "__main__.py.tmp")
+                tmp.writeText(MAIN)
+                tmp.renameTo(main)
+            }
+            Runner.prepareSpare(ctx)
+            return@withLock
+        }
         val dir = File(base(ctx), stamp(zip))
         dir.deleteRecursively()
         val r = Runner.script(ctx, "faststart", UNZIP, listOf(zip.absolutePath, dir.absolutePath))
@@ -135,6 +163,7 @@ object FastStart {
         File(dir, READY).writeText(zip.length().toString())
         // Older copies go too, unless a download may still be importing from one.
         if (!Runner.busy()) base(ctx).listFiles()?.filter { it.isDirectory && it != dir }?.forEach { it.deleteRecursively() }
+        Runner.prepareSpare(ctx)
     }
 
     /** Keep the newest few players: YouTube moves to new player versions every few days. */

@@ -336,6 +336,25 @@ const S = {
     'Sirf wahi download karo jiska aapko haq hai. Creators aur site ke rules ka respect karo. OnePlace DRM content support nahi karta.',
     'सिर्फ़ वही डाउनलोड करें जिसका आपको अधिकार है। क्रिएटर्स और साइट की शर्तों का सम्मान करें। OnePlace DRM कंटेंट सपोर्ट नहीं करता।',
   ],
+  'about.madeBy': ['Made by buildcool', 'buildcool ne banaya', 'buildcool ने बनाया'],
+  'about.maker': ['buildcool on GitHub', 'GitHub par buildcool', 'GitHub पर buildcool'],
+  'about.official': ['Official build', 'Official build', 'आधिकारिक बिल्ड'],
+  'about.officialSub': [
+    'Signed by buildcool. Updates come only from github.com/buildcool/oneplace.',
+    'buildcool ka signed. Updates sirf github.com/buildcool/oneplace se aate hain.',
+    'buildcool द्वारा साइन किया गया। अपडेट सिर्फ़ github.com/buildcool/oneplace से आते हैं।',
+  ],
+  'about.unofficial': ['Unofficial copy', 'Unofficial copy', 'अनौपचारिक कॉपी'],
+  'about.unofficialSub': [
+    'This copy was not built by buildcool. Get the real OnePlace from github.com/buildcool/oneplace.',
+    'Ye copy buildcool ne nahi banayi. Asli OnePlace github.com/buildcool/oneplace se lo.',
+    'यह कॉपी buildcool ने नहीं बनाई। असली OnePlace github.com/buildcool/oneplace से लें।',
+  ],
+  'about.licenseNote': [
+    'OnePlace is free software under GPL-3.0 with extra terms: copies must keep the "Made by buildcool" credit, use a different name and icon, and say they are modified.',
+    'OnePlace GPL-3.0 ke saath extra terms par free software hai: copies mein "Made by buildcool" credit rehna chahiye, naam aur icon alag hone chahiye, aur batana hoga ki ye modified hai.',
+    'OnePlace अतिरिक्त शर्तों के साथ GPL-3.0 के तहत फ़्री सॉफ़्टवेयर है: कॉपी में "Made by buildcool" क्रेडिट रहना चाहिए, नाम और आइकन अलग होने चाहिए, और बताना होगा कि यह बदला हुआ है।',
+  ],
   'about.licenses': ['Open-source licences', 'Open-source licences', 'ओपन-सोर्स लाइसेंस'],
   'about.source': ['Source code on GitHub', 'GitHub par source code', 'GitHub पर सोर्स कोड'],
 

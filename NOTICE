@@ -1,0 +1,33 @@
+OnePlace
+Copyright (C) 2026 buildcool <https://github.com/buildcool>
+
+OnePlace is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of
+the License, or (at your option) any later version (see LICENSE), together with the additional
+terms below. It is distributed WITHOUT ANY WARRANTY; see the GNU General Public License.
+
+OnePlace includes youtubedl-android (GPL-3.0), so OnePlace itself stays under the GPL whenever
+it is distributed. Section 7 of GPL-3.0 allows the additional terms below. They apply to all
+material in this repository written by buildcool, and to every copy and modified version of it.
+
+ADDITIONAL TERMS (GPL-3.0 section 7)
+
+1. Author attribution (section 7b). Every copy and every modified version must keep this
+   NOTICE file, the copyright line above and, in the app's About screen (its Appropriate Legal
+   Notices), the credit "Made by buildcool" with a link to https://github.com/buildcool/oneplace.
+
+2. Origin and modified versions (section 7c). Nobody may present a modified version as the
+   original OnePlace, or as made, published or endorsed by buildcool. A modified version that is
+   distributed must be marked as different from the original: it must use a different app name,
+   a different application id (not io.github.buildcool.oneplace) and a different icon, and its
+   About screen must say that it is a modified version of OnePlace by buildcool.
+
+3. Names and logos (section 7e). This license grants no rights under trademark law to the
+   names "OnePlace" and "buildcool" or to the OnePlace logo and app icon. See TRADEMARKS.md.
+
+OFFICIAL BUILDS
+
+Official builds are published only at https://github.com/buildcool/oneplace/releases and are
+signed with buildcool's release certificate, SHA-256 fingerprint:
+FB:4F:9C:9F:AA:5A:CE:29:48:21:28:FD:41:59:66:C2:8A:45:5E:99:3F:95:99:12:81:CE:D5:B2:07:F5:64:34
+The app's About screen shows "Official build" only when it carries this signature.

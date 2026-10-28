@@ -300,7 +300,7 @@ object Queue {
                     listOf("-P", dir.absolutePath, "--cache-dir", Engines.cacheDir(ctx), "--progress-template", Progress.TEMPLATE) +
                     // --print would make yt-dlp quiet; --no-quiet keeps the progress lines we read.
                     listOf("--no-quiet", "--print", "after_move:${Progress.FILE_MARK} %(filepath)s") +
-                    archive + Engines.cookieArgs(ctx, job.site) + Config.siteArgs(ctx, job.site) +
+                    archive + Engines.cookieArgs(ctx, job.site) + Engines.speedArgs(job.site) + Config.siteArgs(ctx, job.site) +
                     (if (fast) Engines.fastArgs(ctx, job.site) else emptyList()) + target
                 Runner.ytdlp(ctx, job.id, args) { line ->
                     if (line.startsWith(Progress.FILE_MARK)) {

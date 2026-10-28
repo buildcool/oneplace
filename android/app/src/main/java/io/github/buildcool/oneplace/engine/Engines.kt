@@ -59,6 +59,7 @@ object Engines {
                 // The yt-dlp inside the library is months old; YouTube needs the newest one.
                 if (YoutubeDL.getInstance().version(ctx) == null) runCatching { updateNow(ctx) }
                 FastStart.refreshSoon(ctx)
+                Runner.prepareSpare(ctx)
             }
         } catch (e: Throwable) {
             error = e.message ?: e.toString()
@@ -127,6 +128,13 @@ object Engines {
         } else {
             emptyList()
         }
+
+    /**
+     * Download 4 pieces at once where videos come in pieces (HLS/DASH): Dailymotion went from 27 s to 14 s.
+     * YouTube stays at one to keep clear of its limits.
+     */
+    fun speedArgs(site: String): List<String> =
+        if (site == "youtube" || site == "ytmusic") emptyList() else listOf("--concurrent-fragments", "4")
 
     /** True when yt-dlp's -J output lists at least one format. */
     private fun hasFormats(out: String): Boolean {

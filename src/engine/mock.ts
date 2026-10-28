@@ -15,6 +15,7 @@ const STATUS: EngineStatus = {
   appVersion: 'dev',
   build: 0,
   maker: 'browser',
+  official: false,
 };
 
 const SAMPLE = {

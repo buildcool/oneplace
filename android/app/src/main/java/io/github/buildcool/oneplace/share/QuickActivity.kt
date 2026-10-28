@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import io.github.buildcool.oneplace.Config
 import io.github.buildcool.oneplace.Shares
+import io.github.buildcool.oneplace.engine.Runner
 import io.github.buildcool.oneplace.queue.Queue
 import org.json.JSONArray
 import org.json.JSONObject
@@ -46,6 +47,8 @@ class QuickActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Python and yt-dlp start loading now; the download is about to need them.
+        Runner.prepareSpare(applicationContext)
         if (intent.action == ACTION_COPIED) {
             // Android hands out the clipboard only once this window has focus (onWindowFocusChanged).
             waitingForClipboard = true

@@ -237,12 +237,16 @@ export function Settings(p: Props) {
         </div>
 
         <SectionTitle>OnePlace</SectionTitle>
-        <div className="card group" style={{ marginBottom: 24 }}>
+        <div className="card group" style={{ marginBottom: 12 }}>
           <Row icon="globe" title={t('set.sites')} onClick={() => p.onPage('sites')} />
           <Row icon="shield" title={t('set.about')} onClick={() => p.onPage('about')} />
           <Row icon="flask" title={t('set.test')} onClick={() => p.onPage('test')} />
           <Row icon="bug" title={t('set.report')} onClick={() => openExternal(reportUrl({ status: p.status }))} />
         </div>
+        <p className="small muted credit-foot">
+          OnePlace {p.status?.appVersion ?? ''} · {t('about.madeBy')}
+          {p.status?.official ? ` · ${t('about.official')} ✓` : ''}
+        </p>
       </main>
     </>
   );

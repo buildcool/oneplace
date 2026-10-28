@@ -9,7 +9,7 @@ import type { EngineId } from '../core/types.ts';
 import { REPO } from '../core/update.ts';
 import { engine, type EngineStatus } from '../engine/index.ts';
 import { useT } from '../i18n.ts';
-import { Icon } from './Icon.tsx';
+import { Icon, LogoMark } from './Icon.tsx';
 import { SectionTitle, SiteAvatar, SubPage } from './common.tsx';
 import { openExternal } from './report.ts';
 
@@ -55,7 +55,7 @@ export function SitesPage({ onBack }: { onBack: () => void }) {
 }
 
 const LICENCES = [
-  ['OnePlace', 'GPL-3.0'],
+  ['OnePlace © 2026 buildcool', 'GPL-3.0 + terms'],
   ['youtubedl-android', 'GPL-3.0'],
   ['yt-dlp', 'Unlicense'],
   ['gallery-dl', 'GPL-2.0'],
@@ -69,8 +69,26 @@ const LICENCES = [
 
 export function AboutPage({ onBack, status }: { onBack: () => void; status?: EngineStatus }) {
   const t = useT();
+  const official = status?.official;
   return (
     <SubPage title={t('set.about')} onBack={onBack}>
+      <div className="card credit">
+        <LogoMark size={48} />
+        <div className="grow">
+          <b style={{ fontSize: 18 }}>OnePlace</b>
+          <span>{t('about.madeBy')}</span>
+          <span className="small muted">© 2026 buildcool · GPL-3.0</span>
+        </div>
+      </div>
+      {status && status.official !== undefined ? (
+        <div className={`banner ${official ? 'good' : 'warn'}`}>
+          <Icon name={official ? 'check' : 'alert'} />
+          <div className="grow small">
+            <b>{t(official ? 'about.official' : 'about.unofficial')}</b>
+            <div>{t(official ? 'about.officialSub' : 'about.unofficialSub')}</div>
+          </div>
+        </div>
+      ) : null}
       <div className="card" style={{ padding: 16, marginTop: 8 }}>
         <p style={{ margin: 0 }}>{t('about.body')}</p>
         <p className="small muted" style={{ marginBottom: 0 }}>
@@ -93,6 +111,7 @@ export function AboutPage({ onBack, status }: { onBack: () => void; status?: Eng
         <div className="grow small">{t('about.legal')}</div>
       </div>
       <SectionTitle>{t('about.licenses')}</SectionTitle>
+      <p className="note">{t('about.licenseNote')}</p>
       <div className="card group">
         {LICENCES.map(([name, lic]) => (
           <div key={name} className="row">
@@ -101,8 +120,11 @@ export function AboutPage({ onBack, status }: { onBack: () => void; status?: Eng
           </div>
         ))}
       </div>
-      <button type="button" className="btn block tonal" style={{ margin: '16px 0 24px' }} onClick={() => openExternal(`https://github.com/${REPO}`)}>
+      <button type="button" className="btn block tonal" style={{ marginTop: 16 }} onClick={() => openExternal(`https://github.com/${REPO}`)}>
         <Icon name="code" /> {t('about.source')}
+      </button>
+      <button type="button" className="btn block plain" style={{ margin: '8px 0 24px' }} onClick={() => openExternal('https://github.com/buildcool')}>
+        <Icon name="user" /> {t('about.maker')}
       </button>
     </SubPage>
   );

@@ -79,6 +79,8 @@ class EnginePlugin : Plugin() {
 
     fun emit(event: String, data: JSObject, retain: Boolean = false) = notifyListeners(event, data, retain)
 
+    private val official by lazy { Official.isOfficial(app) }
+
     private fun statusObject(): JSObject = JSObject()
         .put("ready", Engines.ready)
         .put("preparing", Engines.preparing)
@@ -90,6 +92,7 @@ class EnginePlugin : Plugin() {
         .put("appVersion", BuildConfig.VERSION_NAME)
         .put("build", BuildConfig.VERSION_CODE)
         .put("maker", Build.MANUFACTURER ?: "")
+        .put("official", official)
 
     @PluginMethod
     fun status(call: PluginCall) {

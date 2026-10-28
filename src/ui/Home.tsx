@@ -49,6 +49,7 @@ export function Home(p: Props) {
         <div className="logo">
           <LogoMark />
           <span className="logo-text">OnePlace</span>
+          <span className="logo-by">by buildcool</span>
         </div>
       </header>
       <main className="page">
