@@ -56,10 +56,13 @@ object Thumbs {
     /** After the queue saved a file: make its picture and read its facts in the background, then update the UI. */
     fun later(ctx: Context, job: Job, uri: String) {
         val app = ctx.applicationContext
-        scope.launch { gate.withPermit { fill(app, job, uri) } }
+        scope.launch { gate.withPermit { fill(app, job, uri, network = true) } }
     }
 
-    /** Downloads from before this version: give them pictures too, newest first, once per file. */
+    /**
+     * Downloads from before this version: give them pictures too, newest first, once per file. Only from what is
+     * on the phone (frames, songs' own covers), so hundreds of old downloads cost no mobile data.
+     */
     fun backfill(ctx: Context) {
         if (backfilled) return
         backfilled = true
@@ -68,15 +71,15 @@ object Thumbs {
             delay(4_000)
             for (job in JobStore.all()) {
                 if (job.status != "done") continue
-                for (f in job.files) if (!f.meta && isMedia(f)) gate.withPermit { fill(app, job, f.uri) }
+                for (f in job.files) if (!f.meta && isMedia(f)) gate.withPermit { fill(app, job, f.uri, network = false) }
             }
         }
     }
 
-    private fun fill(ctx: Context, job: Job, uri: String) {
+    private fun fill(ctx: Context, job: Job, uri: String, network: Boolean) {
         val file = job.files.find { it.uri == uri } ?: return
         if (file.meta) return
-        val made = runCatching { make(ctx, job, file) }.getOrElse { file.copy(meta = true) }
+        val made = runCatching { make(ctx, job, file, network) }.getOrElse { file.copy(meta = true) }
         job.updateFile(uri) { made }
         if (JobStore.get(job.id) === job) {
             JobStore.save(job)
@@ -84,15 +87,19 @@ object Thumbs {
         }
     }
 
-    /** Picture and facts for one file. A missing picture is fine: the UI shows an icon. */
-    fun make(ctx: Context, job: Job, f: JobFile): JobFile {
+    /**
+     * Picture and facts for one file. A missing picture is fine: the UI shows an icon. Songs use the cover inside the
+     * file; videos the site's own picture (when [network] allows), else a frame.
+     */
+    fun make(ctx: Context, job: Job, f: JobFile, network: Boolean = true): JobFile {
         val out = fileFor(ctx, f.uri)
         val uri = Uri.parse(f.uri)
         var ok = out.length() > 0
         // The job's picture is the whole playlist's, so items only use their own.
         val cover = f.cover ?: job.thumb?.takeIf { !job.isPlaylist && job.edit == null && it.startsWith("http") }
         if (!ok && f.mime.startsWith("image/")) ok = save(photo(ctx, uri), out)
-        if (!ok && cover != null) ok = save(download(cover), out)
+        if (!ok && f.mime.startsWith("audio/")) ok = save(art(ctx, uri), out)
+        if (!ok && cover != null && network) ok = save(download(cover), out)
         if (!ok) ok = save(fromMedia(ctx, uri, f), out)
         val known = if (f.dur > 0 && (f.w > 0 || f.mime.startsWith("audio/"))) f else facts(ctx, uri, f)
         return known.copy(thumb = if (ok) out.absolutePath else known.thumb, meta = true)
@@ -162,13 +169,14 @@ object Thumbs {
                 frameAt(r, (ms * 0.15).toLong().coerceIn(0, 5_000) * 1000) ?: frameAt(r, 0)
             }?.let { return it }
         }
-        if (f.mime.startsWith("audio/")) {
-            retriever { r ->
-                r.setDataSource(ctx, uri)
-                r.embeddedPicture?.let { decode(it) }
-            }?.let { return it }
-        }
+        if (f.mime.startsWith("audio/")) art(ctx, uri)?.let { return it }
         return if (Build.VERSION.SDK_INT >= 29) runCatching { ctx.contentResolver.loadThumbnail(uri, Size(MAX, MAX), null) }.getOrNull() else null
+    }
+
+    /** The cover stored inside a song file. */
+    private fun art(ctx: Context, uri: Uri): Bitmap? = retriever { r ->
+        r.setDataSource(ctx, uri)
+        r.embeddedPicture?.let { decode(it) }
     }
 
     private fun frameAt(r: MediaMetadataRetriever, us: Long): Bitmap? =

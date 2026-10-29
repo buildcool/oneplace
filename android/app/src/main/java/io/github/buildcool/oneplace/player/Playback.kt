@@ -88,7 +88,7 @@ object Playback {
         attached = p
     }
 
-    fun load(ctx: Context, items: JSONArray, index: Int, positionMs: Long, video: Boolean) = withPlayer(ctx) { p ->
+    fun load(ctx: Context, items: JSONArray, index: Int, positionMs: Long, video: Boolean): Unit = withPlayer(ctx) { p ->
         val list = (0 until items.length()).map { item(items.getJSONObject(it)) }
         if (list.isEmpty()) return@withPlayer
         sleepAt = 0
@@ -122,7 +122,7 @@ object Playback {
             .build()
     }
 
-    fun control(ctx: Context, action: String, value: Double) = withPlayer(ctx) { p ->
+    fun control(ctx: Context, action: String, value: Double): Unit = withPlayer(ctx) { p ->
         when (action) {
             "play" -> {
                 if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)

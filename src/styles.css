@@ -682,6 +682,10 @@ button.row:active {
   object-fit: cover;
 }
 
+.thumb.square {
+  aspect-ratio: 1;
+}
+
 .thumb .ph {
   position: absolute;
   inset: 0;
