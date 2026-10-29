@@ -90,6 +90,8 @@ object Ml {
         val entry = zip.entries().find { it.name == "jni/$abi/libonnxruntime.so" } ?: throw IOException("Engine for $abi not found")
         val tmp = File(dir(ctx), "runtime.tmp")
         val digest = MessageDigest.getInstance("SHA-256")
+        // A read-only leftover from an interrupted download could not be opened for writing again.
+        tmp.delete()
         try {
             val stream = tmp.outputStream()
             // Android 14+ wants code loaded at runtime to be read-only: mark it so before writing (as documented).
