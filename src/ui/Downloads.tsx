@@ -4,6 +4,7 @@ import type { Job } from '../core/types.ts';
 import { useT, type Key } from '../i18n.ts';
 import { Icon } from './Icon.tsx';
 import { Empty, Progress, SectionTitle, SiteAvatar, Thumb } from './common.tsx';
+import { jobThumbs } from '../core/media.ts';
 import { failDetail, jobIcon, jobLine } from './jobs.ts';
 
 interface Props {
@@ -74,10 +75,17 @@ function JobCard({ j, onCancel, onRetry, onFix, onOpen, onMenu }: Props & { j: J
   const running = j.status === 'running' || j.status === 'queued';
   const ex = j.status === 'failed' ? explain(j.error, j.url) : undefined;
   const fix = ex?.fix ?? 'none';
+  const gone = j.status === 'done' && !j.files.length;
   return (
     <div className={`card job${j.status === 'failed' ? ' failed' : ''}`}>
-      <button type="button" onClick={() => (j.status === 'done' ? onOpen(j) : onMenu(j))} aria-label={j.title}>
-        <Thumb src={j.thumb} icon={jobIcon(j)} />
+      <button type="button" onClick={() => (j.status === 'done' && !gone ? onOpen(j) : onMenu(j))} aria-label={j.title}>
+        <Thumb srcs={jobThumbs(j)} icon={jobIcon(j)}>
+          {j.status === 'done' && !gone ? (
+            <span className="kind">
+              <Icon name={j.mode === 'audio' ? 'music' : j.dest === 'image' ? 'image' : 'play'} size={15} fill={j.mode !== 'audio' && j.dest !== 'image'} />
+            </span>
+          ) : null}
+        </Thumb>
       </button>
       <div className="info">
         <div className="title">{j.title}</div>
@@ -86,6 +94,13 @@ function JobCard({ j, onCancel, onRetry, onFix, onOpen, onMenu }: Props & { j: J
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.status === 'failed' ? t('dl.failed') : jobLine(j, t)}</span>
         </div>
         {running ? <Progress value={j.status === 'queued' ? -1 : j.progress} /> : null}
+        {gone ? (
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btn small tonal" onClick={() => onRetry(j)}>
+              <Icon name="download" size={16} /> {t('act.again')}
+            </button>
+          </div>
+        ) : null}
         {j.status === 'failed' ? (
           <>
             <div className="err">{jobLine(j, t)}</div>

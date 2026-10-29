@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { bytes } from '../core/format.ts';
 import type { Settings as S, VideoQuality } from '../core/settings.ts';
 import { SITES } from '../core/sites.ts';
 import type { SiteId } from '../core/types.ts';
 import { RELEASES_PAGE } from '../core/update.ts';
 import type { EngineStatus } from '../engine/index.ts';
+import type { KaraokeStatus } from '../engine/types.ts';
 import { LANGS, useT } from '../i18n.ts';
 import { Icon } from './Icon.tsx';
 import { Row, SectionTitle, Seg, SiteAvatar, SwitchRow } from './common.tsx';
@@ -27,6 +29,10 @@ interface Props {
   onBattery: () => void;
   onNotifications: () => void;
   onAddTile: () => Promise<boolean>;
+  /** Small floating video window possible (Android 8+). */
+  pipOk: boolean;
+  onKaraokeStatus: () => Promise<KaraokeStatus>;
+  onKaraokeDelete: () => Promise<void>;
   onPage: (p: Page) => void;
 }
 
@@ -38,7 +44,14 @@ export function Settings(p: Props) {
   const [appMsg, setAppMsg] = useState<string>();
   const [appBusy, setAppBusy] = useState(false);
   const [tileMsg, setTileMsg] = useState<string>();
+  const [kar, setKar] = useState<KaraokeStatus>();
   const qualities: VideoQuality[] = ['best', 2160, 1440, 1080, 720, 480, 360];
+  const { onKaraokeStatus } = p;
+  useEffect(() => {
+    onKaraokeStatus()
+      .then(setKar)
+      .catch(() => {});
+  }, [onKaraokeStatus]);
 
   return (
     <>
@@ -123,6 +136,48 @@ export function Settings(p: Props) {
             title={t('set.tile')}
             sub={tileMsg ?? t('set.tileSub')}
             onClick={async () => setTileMsg((await p.onAddTile()) ? t('set.tileAdded') : t('set.tileManual'))}
+          />
+        </div>
+
+        <SectionTitle>{t('set.player')}</SectionTitle>
+        <div className="card group">
+          <div className="row stack">
+            <span className="title">{t('set.openIn')}</span>
+            <Seg
+              value={s.openIn}
+              options={[
+                { id: 'app', label: t('set.openApp') },
+                { id: 'other', label: t('set.openOther') },
+              ]}
+              onChange={(openIn) => p.update({ openIn })}
+            />
+          </div>
+          <div className="row stack">
+            <span className="title">{t('set.leave')}</span>
+            <Seg
+              value={!p.pipOk && s.leaveVideo === 'pip' ? 'pause' : s.leaveVideo}
+              options={[
+                ...(p.pipOk ? [{ id: 'pip' as const, label: t('set.leavePip') }] : []),
+                { id: 'audio' as const, label: t('set.leaveAudio') },
+                { id: 'pause' as const, label: t('set.leavePause') },
+              ]}
+              onChange={(leaveVideo) => p.update({ leaveVideo })}
+            />
+          </div>
+          <SwitchRow icon="replay" title={t('set.resume')} on={s.resume} onChange={(resume) => p.update({ resume })} />
+          <Row
+            icon="micOff"
+            title={t('set.karaoke')}
+            sub={kar?.installed ? t('set.karaokeOn', { size: bytes(kar.bytes) }) : t('set.karaokeOff', { mb: Math.round((kar?.download ?? 51_000_000) / 1_000_000) })}
+            onClick={
+              kar?.installed
+                ? async () => {
+                    await p.onKaraokeDelete();
+                    setKar(await p.onKaraokeStatus().catch(() => undefined));
+                  }
+                : undefined
+            }
+            trail={kar?.installed ? <Icon name="trash" size={18} /> : ''}
           />
         </div>
 

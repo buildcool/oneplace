@@ -24,6 +24,7 @@ import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
+import io.github.buildcool.oneplace.edit.Ml
 import io.github.buildcool.oneplace.engine.Engines
 import io.github.buildcool.oneplace.engine.Net
 import io.github.buildcool.oneplace.login.Cookies
@@ -34,7 +35,9 @@ import io.github.buildcool.oneplace.queue.JobStore
 import io.github.buildcool.oneplace.queue.Keepalive
 import io.github.buildcool.oneplace.queue.Queue
 import io.github.buildcool.oneplace.share.CopiedLinkTile
+import io.github.buildcool.oneplace.storage.Files
 import io.github.buildcool.oneplace.storage.Saver
+import io.github.buildcool.oneplace.storage.Thumbs
 import io.github.buildcool.oneplace.update.AppUpdater
 import java.lang.ref.WeakReference
 import java.util.Locale
@@ -70,6 +73,8 @@ class EnginePlugin : Plugin() {
         // Downloads that were interrupted or waiting: continue now that the app is open.
         if (JobStore.active().isNotEmpty()) Queue.start(app)
         applyQuickTargets()
+        // Pictures for downloads made before the Library had them.
+        Thumbs.backfill(app)
     }
 
     override fun handleOnDestroy() {
@@ -201,12 +206,15 @@ class EnginePlugin : Plugin() {
         call.resolve()
     }
 
+    /** Open a file in another app; with "chooser" Android always asks which app. */
     @PluginMethod
     fun open(call: PluginCall) {
         val job = call.getString("id")?.let { JobStore.get(it) } ?: return call.reject("not found")
-        val file = job.files.getOrNull(call.getInt("index", 0) ?: 0) ?: return call.reject("no file")
+        val file = call.getString("uri")?.let { u -> job.files.find { it.uri == u } } ?: job.files.getOrNull(call.getInt("index", 0) ?: 0)
+            ?: return call.reject("no file")
         try {
-            activity.startActivity(Saver.openIntent(file))
+            val view = Saver.openIntent(file)
+            activity.startActivity(if (call.getBoolean("chooser", false) == true) Intent.createChooser(view, file.title ?: job.title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) else view)
             call.resolve()
         } catch (e: Exception) {
             call.reject(e.message ?: "no app can open this file")
@@ -216,9 +224,66 @@ class EnginePlugin : Plugin() {
     @PluginMethod
     fun share(call: PluginCall) {
         val job = call.getString("id")?.let { JobStore.get(it) } ?: return call.reject("not found")
-        if (job.files.isEmpty()) return call.reject("no file")
-        activity.startActivity(Saver.shareIntent(job.files, job.title))
+        val files = call.getString("uri")?.let { u -> job.files.filter { it.uri == u } } ?: job.files
+        if (files.isEmpty()) return call.reject("no file")
+        activity.startActivity(Saver.shareIntent(files, files.singleOrNull()?.title ?: job.title))
         call.resolve()
+    }
+
+    private fun refs(call: PluginCall): List<Pair<String, String>> {
+        val a = call.getArray("refs") ?: return emptyList()
+        return (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { Pair(it.optString("id"), it.optString("uri")) } }
+    }
+
+    /** Share files from several downloads at once (Library selection). */
+    @PluginMethod
+    fun shareFiles(call: PluginCall) {
+        val files = refs(call).mapNotNull { (id, uri) -> JobStore.get(id)?.files?.find { it.uri == uri } }
+        if (files.isEmpty()) return call.reject("no file")
+        activity.startActivity(Saver.shareIntent(files, files.singleOrNull()?.title ?: "OnePlace"))
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun removeFiles(call: PluginCall) {
+        val list = refs(call)
+        scope.launch {
+            Files.remove(app, list)
+            call.resolve()
+        }
+    }
+
+    /** Files deleted in Gallery or a file manager: update their downloads. Returns how many downloads changed. */
+    @PluginMethod
+    fun checkFiles(call: PluginCall) {
+        scope.launch {
+            val changed = runCatching { Files.check(app) }.getOrDefault(emptyList())
+            changed.forEach { Queue.emit(it, force = true) }
+            call.resolve(JSObject().put("value", changed.size))
+        }
+    }
+
+    /** The vocal remover's one-time download: there or not, its size. */
+    @PluginMethod
+    fun karaoke(call: PluginCall) {
+        scope.launch {
+            call.resolve(JSObject().put("installed", Ml.installed(app)).put("bytes", Ml.bytes(app)).put("download", Ml.DOWNLOAD))
+        }
+    }
+
+    @PluginMethod
+    fun deleteKaraoke(call: PluginCall) {
+        scope.launch {
+            Ml.delete(app)
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun pendingOpen(call: PluginCall) {
+        val id = Shares.pendingOpen
+        Shares.pendingOpen = null
+        call.resolve(JSObject().apply { if (id != null) put("id", id) })
     }
 
     @PluginMethod
@@ -408,6 +473,13 @@ class EnginePlugin : Plugin() {
 
     companion object {
         private var instance: WeakReference<EnginePlugin>? = null
+
+        /** A "Downloaded" notification tapped while the app is open. False when the UI is not up yet. */
+        fun deliverOpen(id: String): Boolean {
+            val p = instance?.get() ?: return false
+            p.emit("openJob", JSObject().put("id", id), retain = true)
+            return true
+        }
 
         /** A share while the app is open. False when the UI is not up yet (MainActivity keeps it as pending). */
         fun deliverShare(text: String): Boolean {

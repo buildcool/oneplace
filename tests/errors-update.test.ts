@@ -141,3 +141,12 @@ describe('instagram login', () => {
     expect(explain('AbortExtraction: HTTP redirect to login page (https://www.instagram.com/accounts/login/)').fix).toBe('login');
   });
 });
+
+describe('vocal remover errors', () => {
+  it('explains its own failures', () => {
+    expect(explain('Vocal remover: the original file is gone')).toMatchObject({ code: 'nosource', fix: 'none' });
+    expect(explain('Vocal remover download failed: HTTP 503 while downloading the voice model')).toMatchObject({ code: 'aisetup', fix: 'retry' });
+    expect(explain('Vocal remover failed: could not save the result')).toMatchObject({ code: 'aifail', fix: 'report' });
+    expect(explain('Vocal remover failed: No space left on device')).toMatchObject({ code: 'space' });
+  });
+});

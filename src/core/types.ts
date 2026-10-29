@@ -67,8 +67,8 @@ export interface Link {
   short?: boolean;
 }
 
-/** yt-dlp for video/audio, gallery-dl for photos/galleries, http for plain files (thumbnails). */
-export type EngineId = 'ytdlp' | 'gallerydl' | 'http';
+/** yt-dlp for video/audio, gallery-dl for photos/galleries, http for plain files (thumbnails), edit for tools on saved files. */
+export type EngineId = 'ytdlp' | 'gallerydl' | 'http' | 'edit';
 
 /** What the user wants out of a link. */
 export type Mode = 'video' | 'audio' | 'photo' | 'thumbnail';
@@ -119,6 +119,30 @@ export interface JobFile {
   name: string;
   mime: string;
   size: number;
+  /** This item's own title (playlist entries have one each); otherwise the job's title is used. */
+  title?: string;
+  /** Uploader or artist. */
+  artist?: string;
+  /** Length in seconds. */
+  dur?: number;
+  w?: number;
+  h?: number;
+  /** Small JPEG made on the phone (cover, video frame or a copy of the photo), so the Library works offline. */
+  thumb?: string;
+  /** Vocal remover output: which part of the song this file is. */
+  stem?: 'music' | 'vocals';
+}
+
+/** A new file made from a saved one: the vocal remover (more tools later). */
+export interface EditSpec {
+  kind: 'karaoke';
+  /** The download and the file in it that this is made from. */
+  source: { id: string; index: number };
+  keep: 'music' | 'vocals' | 'both';
+  /** Videos: keep the picture with the new sound, or save the sound only. */
+  as: 'video' | 'audio';
+  /** MP3 bitrate (kbps) when the result is a song. */
+  bitrate?: number;
 }
 
 /** A download as stored by the native queue. */
@@ -144,6 +168,9 @@ export interface Job {
   createdAt: number;
   finishedAt?: number;
   attempts: number;
+  /** A frame from the video while it downloads (local file), for when the site gave no picture. */
+  preview?: string;
+  edit?: EditSpec;
 }
 
 /** What the UI hands to the native queue. */
@@ -163,4 +190,5 @@ export interface JobRequest extends JobTemplate {
   expectedBytes?: number;
   /** The title is a placeholder (download started before the link was read): use the file's name. */
   titleFromFile?: boolean;
+  edit?: EditSpec;
 }

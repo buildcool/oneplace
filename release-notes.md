@@ -1,12 +1,28 @@
 ## What's new
 
-- **Every site is faster now, not just YouTube** (measured on a Lava phone with Jio 4G):
-  - Videos and songs that arrive in pieces download 2–6× faster: the engine keeps its connection open and fetches 4 pieces at a time (Dailymotion video 82 s → 14 s, SoundCloud song 24 s → 10 s).
-  - Sites that need several requests read much faster (an X post: 15.6 s → 8.9 s).
-  - The engine is started ahead of time, so every link starts ~0.5–1 s sooner (Instagram 3.2 → 2.7 s, Pinterest 3.1 → 2.1 s).
-- **Made by buildcool:** the maker's name is now shown on Home, in About and at the bottom of More. About also says whether you have the **official build** (signed by buildcool) or an unofficial copy.
-- Licence: still GPL-3.0 (the youtubedl-android engine requires it), now with extra terms: every copy must keep the "Made by buildcool" credit, and changed copies must use their own name and icon. See NOTICE and TRADEMARKS.md.
-
-### From v1.0.9 (if you skipped it)
-
-- Copied links start downloading by themselves when you open OnePlace, the "Download copied link" Quick Settings tile, and YouTube links read twice as fast.
+- **Watch, listen and view everything inside OnePlace**, no other app needed:
+  - **Video player:** plays MP4, MKV and WebM, including 4K.
+    - Double-tap the left or right side to skip 10 s; swipe left/right to seek.
+    - Swipe the left half for brightness and the right half for volume; pinch to fill the screen.
+    - Speed (0.25×–2×), lock the screen, rotate, subtitles, next/previous.
+    - Continues where you stopped.
+    - Landscape videos turn the phone sideways by themselves; Shorts and Reels stay upright.
+    - Press Home and the video keeps playing in a **small floating window**, or tap 🎧 to keep only the sound.
+  - **Music player:** big cover, shuffle and repeat, speed, sleep timer and the queue.
+    - It keeps playing with the screen off, with controls on the lock screen and in notifications.
+    - A mini player sits above the tabs.
+  - **Photo viewer:** swipe between photos, pinch or double-tap to zoom, drag down to close.
+  - **"Open with another app"** is still one tap away everywhere. In More → Player you can make other apps the default.
+- **New Library:**
+  - **Shelves:** Latest, Continue watching, Videos, Shorts & Reels, Music and Photos.
+  - **Each tab** is a real gallery, grouped by Today, Yesterday, This week and month.
+  - **Search and sort:** newest, oldest, biggest, longest or name.
+  - **Long-press** to select several items, then share or delete them together.
+  - **Pictures work offline:** they are now saved on the phone.
+  - **Deleted elsewhere:** a file deleted in another app shows "Deleted from phone" with a "Download again" button.
+- **Pictures while downloading:** OnePlace now shows the post's own picture, or a frame from the video itself when the site gives none. Copied-link downloads get their real title right away too.
+- **Remove vocals (karaoke):**
+  - Make a karaoke copy of any song or video, a vocals-only copy, or both.
+  - Videos keep their picture.
+  - It works on your phone, with no website. The first time, OnePlace downloads its vocal remover (about 52 MB); after that it works offline. In Settings you can delete it to free space.
+  - In the music player, a **Vocals** switch flips between the original and the karaoke copy.

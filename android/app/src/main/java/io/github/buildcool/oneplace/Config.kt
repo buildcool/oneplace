@@ -42,6 +42,9 @@ object Config {
     fun fastYouTube(ctx: Context) = get(ctx).optBoolean("fastYouTube", true)
     fun siteArgs(ctx: Context, site: String): List<String> = get(ctx).optJSONObject("siteArgs")?.optJSONArray(site).strings()
 
+    /** "Downloaded" notifications open OnePlace's own player and viewer (false: another app). */
+    fun openInApp(ctx: Context) = get(ctx).optString("openIn", "app") != "other"
+
     /** Localised text for notifications and toasts. */
     fun text(ctx: Context, key: String, fallback: String): String =
         get(ctx).optJSONObject("strings")?.optString(key)?.ifBlank { null } ?: fallback

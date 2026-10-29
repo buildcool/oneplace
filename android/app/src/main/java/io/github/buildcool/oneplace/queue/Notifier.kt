@@ -53,7 +53,8 @@ object Notifier {
         val first = running.firstOrNull() ?: active.firstOrNull()
         val known = running.filter { it.progress >= 0 }
         val pct = if (known.isEmpty()) -1 else known.map { it.progress }.average().roundToInt()
-        val title = if (active.size > 1) "${Config.text(ctx, "downloading", "Downloading")} · ${active.size}" else Config.text(ctx, "downloading", "Downloading")
+        val doing = if (first?.edit != null) Config.text(ctx, "aiWorking", "Removing vocals") else Config.text(ctx, "downloading", "Downloading")
+        val title = if (active.size > 1) "$doing · ${active.size}" else doing
         val b = NotificationCompat.Builder(ctx, CH_PROGRESS)
             .setSmallIcon(R.drawable.ic_stat_download)
             .setContentTitle(title)
@@ -85,14 +86,25 @@ object Notifier {
         if (!canPost(ctx)) return
         val file = job.files.firstOrNull() ?: return
         val req = job.id.hashCode()
-        val open = PendingIntent.getActivity(ctx, req, Saver.openIntent(file), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        // In OnePlace's own player/viewer, or straight in another app (setting).
+        val open = if (Config.openInApp(ctx)) {
+            val i = Intent(ctx, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_OPEN, job.id)
+            PendingIntent.getActivity(ctx, req + 2, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        } else {
+            PendingIntent.getActivity(ctx, req, Saver.openIntent(file), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        }
         val share = PendingIntent.getActivity(
             ctx, req + 1, Saver.shareIntent(job.files, job.title), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val n = NotificationCompat.Builder(ctx, CH_DONE)
             .setSmallIcon(R.drawable.ic_stat_download)
             .setContentTitle(job.title)
-            .setContentText(Config.text(ctx, "done", "Downloaded") + if (job.files.size > 1) " · ${job.files.size}" else "")
+            .setContentText(
+                (if (job.edit != null) Config.text(ctx, "made", "Ready") else Config.text(ctx, "done", "Downloaded")) +
+                    if (job.files.size > 1) " · ${job.files.size}" else "",
+            )
             .setAutoCancel(true)
             .setContentIntent(open)
             .addAction(0, Config.text(ctx, "open", "Open"), open)

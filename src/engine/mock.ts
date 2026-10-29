@@ -74,7 +74,16 @@ function simulate(job: Job) {
         eta: 0,
         speed: undefined,
         finishedAt: Date.now(),
-        files: [{ uri: '', name: `${cur.title}.${ext}`, mime: ext === 'mp3' ? 'audio/mpeg' : ext === 'jpg' ? 'image/jpeg' : 'video/mp4', size: 12_345_678 }],
+        files: [
+          {
+            uri: `mock://${cur.id}`,
+            name: `${cur.title}.${ext}`,
+            mime: ext === 'mp3' ? 'audio/mpeg' : ext === 'jpg' ? 'image/jpeg' : 'video/mp4',
+            size: 12_345_678,
+            ...(ext === 'jpg' ? { w: 1080, h: 1350 } : { dur: 213, ...(ext === 'mp4' ? { w: 1920, h: 1080 } : {}) }),
+            ...(cur.thumb ? { thumb: cur.thumb } : {}),
+          },
+        ],
       });
     } else emit({ ...cur, status: 'running', progress: p, eta: Math.round((100 - p) / 8), speed: '3.2MiB/s' });
   }, 600);
@@ -135,8 +144,19 @@ export const mockEngine: Engine = {
     jobs = jobs.filter((j) => !ids.includes(j.id));
     save();
   },
-  open: async () => alert('Opens the file in the phone app'),
+  open: async () => alert('Opens the file in another app on the phone'),
   share: async () => alert('Opens the Android share sheet in the phone app'),
+  shareFiles: async () => alert('Opens the Android share sheet in the phone app'),
+  async removeFiles(refs) {
+    jobs = jobs
+      .map((j) => ({ ...j, files: j.files.filter((f) => !refs.some((r) => r.id === j.id && r.uri === f.uri)) }))
+      .filter((j) => j.files.length || !refs.some((r) => r.id === j.id));
+    save();
+  },
+  checkFiles: async () => 0,
+  karaoke: async () => ({ installed: false, bytes: 0, download: 51_000_000 }),
+  deleteKaraoke: async () => {},
+  pendingOpen: async () => undefined,
   updateEngines: async () => ({ ...STATUS, changed: false }),
   login: async () => ({ saved: false }),
   logout: async () => {},
@@ -160,6 +180,7 @@ export const mockEngine: Engine = {
     return () => jobListeners.delete(cb);
   },
   onShared: () => () => {},
+  onOpenJob: () => () => {},
   onUpdateProgress: () => () => {},
   onStatus: () => () => {},
 };

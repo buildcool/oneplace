@@ -52,3 +52,13 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
 - **Downloading the moment you copy a link** is not possible: since Android 10 no app can read the clipboard in the background (only the keyboard and the app in front can). The known workaround (Tasker/Join) needs a PC and ADB. OnePlace starts a freshly copied link as soon as it is opened, from the "Download copied link" Quick Settings tile, or from the 1-tap share targets.
 - **Reddit** sometimes blocks anonymous requests from mobile networks; logging in helps.
 - **Wi-Fi-only on Android 13 and older:** queued downloads wait until OnePlace is opened again on Wi-Fi (Android 14+ resumes them by itself).
+
+**Player, Library and vocal remover (2026-10-29):**
+- **A picture while downloading** comes from the file itself once ~0.5 MB has arrived. That works for most formats (fragmented MP4, WebM, HLS). An MP4 that stores its index at the end gets its picture only when it is finished.
+- **The small floating window** (picture-in-picture) needs Android 8+. It can be switched off for OnePlace in the phone's settings; the player then says so.
+- **Vocal remover:**
+  - **How:** it uses Deezer's Spleeter (2 stems) on the phone: the voice model's 38 MB plus ONNX Runtime's 32 MB engine (about 52 MB to download), fetched on first use.
+  - **Quality:** good for karaoke, not studio-clean. A faint voice or a "watery" sound can remain in some songs.
+  - **Speed:** about 1 minute for a 4-minute song on a mid-range phone.
+  - **Not used:** larger models (UVR MDX-Net) separate better but are ~9× slower, so they are too slow for phones.
+- **Files deleted in Gallery** or a file manager are noticed when the Library opens, and shown as "Deleted from phone".

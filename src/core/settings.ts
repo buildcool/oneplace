@@ -1,7 +1,8 @@
 import { galleryArgs, ytdlpArgs } from './args.ts';
 import { KIND_LABEL, enginesFor, siteInfo } from './sites.ts';
 import { previewThumb } from './thumbs.ts';
-import type { AudioFormat, DownloadSpec, EngineId, JobRequest, JobTemplate, Link, LinkKind, Mode } from './types.ts';
+import type { SortKey } from './media.ts';
+import type { AudioFormat, DownloadSpec, EditSpec, EngineId, Job, JobRequest, JobTemplate, Link, LinkKind, Mode } from './types.ts';
 
 export type Lang = 'en' | 'hinglish' | 'hi';
 export type VideoQuality = 'best' | 2160 | 1440 | 1080 | 720 | 480 | 360;
@@ -32,6 +33,13 @@ export interface Settings {
   quickTargets: boolean;
   /** Remember the last quality picked in the sheet and preselect it. */
   rememberChoice: boolean;
+  /** Finished downloads open in OnePlace's own player and viewer, or in another app. */
+  openIn: 'app' | 'other';
+  /** Leaving the app while a video plays: small floating window, keep the sound going, or pause. */
+  leaveVideo: 'pip' | 'audio' | 'pause';
+  /** Start videos and songs where you stopped. */
+  resume: boolean;
+  libSort: SortKey;
   lastVideoKey?: string;
   lastAudioKey?: string;
   skippedBuild?: number;
@@ -59,6 +67,10 @@ export const DEFAULTS: Settings = {
   autoCopied: true,
   quickTargets: true,
   rememberChoice: true,
+  openIn: 'app',
+  leaveVideo: 'pip',
+  resume: true,
+  libSort: 'new',
   onboarded: false,
 };
 
@@ -162,6 +174,34 @@ export function quickRequest(link: Link, s: Settings, mode: 'video' | 'audio' = 
     thumb: previewThumb(link),
     titleFromFile: true,
   });
+}
+
+/**
+ * Vocal remover: a new song or video made from a saved file. The original stays as it is.
+ * Videos keep their picture unless "as" is audio.
+ */
+export function editRequest(o: {
+  job: Pick<Job, 'id' | 'url' | 'site' | 'title' | 'thumb'>;
+  index: number;
+  title: string;
+  isVideo: boolean;
+  keep: EditSpec['keep'];
+  as: EditSpec['as'];
+  bitrate?: number;
+}): JobRequest {
+  const audio = o.as === 'audio' || !o.isVideo;
+  const suffix = o.keep === 'vocals' ? 'Vocals' : o.keep === 'both' ? 'Karaoke + Vocals' : 'Karaoke';
+  return {
+    engine: 'edit',
+    args: [],
+    dest: audio ? 'audio' : 'video',
+    url: o.job.url,
+    site: o.job.site,
+    title: `${o.title} (${suffix})`,
+    thumb: o.job.thumb,
+    mode: audio ? 'audio' : 'video',
+    edit: { kind: 'karaoke', source: { id: o.job.id, index: o.index }, keep: o.keep, as: audio ? 'audio' : 'video', ...(o.bitrate ? { bitrate: o.bitrate } : {}) },
+  };
 }
 
 export type QuickAction = 'video' | 'audio' | 'thumbnail';

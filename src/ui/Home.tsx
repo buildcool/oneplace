@@ -7,6 +7,7 @@ import type { EngineStatus } from '../engine/index.ts';
 import { useT, type Lang } from '../i18n.ts';
 import { Icon, LogoMark } from './Icon.tsx';
 import { Progress, SectionTitle, SiteAvatar, Thumb } from './common.tsx';
+import { jobThumbs } from '../core/media.ts';
 import { jobIcon } from './jobs.ts';
 import { openExternal } from './report.ts';
 
@@ -35,7 +36,7 @@ export function Home(p: Props) {
   const active = p.jobs.filter((j) => j.status === 'running' || j.status === 'queued');
   const running = active.filter((j) => j.status === 'running' && j.progress >= 0);
   const avg = running.length ? running.reduce((n, j) => n + j.progress, 0) / running.length : -1;
-  const recent = p.jobs.filter((j) => j.status === 'done').slice(0, 8);
+  const recent = p.jobs.filter((j) => j.status === 'done' && j.files.length).slice(0, 8);
 
   const submit = (value: string) => {
     if (!value.trim()) return;
@@ -184,7 +185,7 @@ export function Home(p: Props) {
             <div className="recent">
               {recent.map((j) => (
                 <button key={j.id} type="button" onClick={() => p.onOpenJob(j)}>
-                  <Thumb src={j.thumb} icon={jobIcon(j)} />
+                  <Thumb srcs={jobThumbs(j)} icon={jobIcon(j)} />
                   <div className="t">{j.title}</div>
                 </button>
               ))}

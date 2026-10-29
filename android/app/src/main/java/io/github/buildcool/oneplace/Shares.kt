@@ -9,6 +9,10 @@ object Shares {
     @Volatile
     var pending: String? = null
 
+    /** A "Downloaded" notification tapped before the UI was ready: the download to show. */
+    @Volatile
+    var pendingOpen: String? = null
+
     fun textFrom(intent: Intent?): String? {
         intent ?: return null
         return when (intent.action) {

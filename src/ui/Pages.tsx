@@ -64,6 +64,10 @@ const LICENCES = [
   ['QuickJS', 'MIT'],
   ['aria2', 'GPL-2.0'],
   ['requests, urllib3, certifi', 'Apache-2.0 / MIT / MPL-2.0'],
+  ['AndroidX Media3 (player)', 'Apache-2.0'],
+  ['ONNX Runtime (vocal remover)', 'MIT'],
+  ['Spleeter by Deezer (voice model)', 'MIT'],
+  ['sherpa-onnx (model conversion, method)', 'Apache-2.0'],
   ['Capacitor, React', 'MIT'],
 ];
 

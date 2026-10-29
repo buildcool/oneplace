@@ -53,6 +53,24 @@ jobs:
       - name: Bundle gallery-dl into the APK
         run: sh scripts/build-gdl.sh
 
+      # The vocal remover's real networks on a real song, checked against sherpa-onnx's own Spleeter
+      # (android/app/src/test/.../SpleeterModelTest.kt). If a download fails, that test is skipped.
+      - name: Get files for the vocal remover check
+        continue-on-error: true
+        run: |
+          set -e
+          d="$RUNNER_TEMP/spleeter"
+          mkdir -p "$d"
+          base=https://huggingface.co/csukuangfj/sherpa-onnx-spleeter-2stems-fp16/resolve/93ba771920ade509f8cbd6825b1a90856c797e08
+          curl -fsSL --retry 3 -o "$d/vocals.fp16.onnx" "$base/vocals.fp16.onnx"
+          curl -fsSL --retry 3 -o "$d/accompaniment.fp16.onnx" "$base/accompaniment.fp16.onnx"
+          curl -fsSL --retry 3 -o "$d/song.wav" https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/qi-feng-le-zh.wav
+          echo "24cef84aedcd1fe87c0b743ef3370ad34dc1fabf6c9014d6128a75a538c7b668  $d/vocals.fp16.onnx" | sha256sum -c
+          echo "d14cea55793cc531a5875f5f4da08207d1c5ab9292e8e0099a104eecb014fcc0  $d/accompaniment.fp16.onnx" | sha256sum -c
+          pip install --quiet "sherpa-onnx==2.0.1" soundfile numpy
+          python scripts/spleeter-reference.py "$d"
+          echo "OP_SPLEETER_DIR=$d" >> "$GITHUB_ENV"
+
       - name: Write signing key
         env:
           KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}

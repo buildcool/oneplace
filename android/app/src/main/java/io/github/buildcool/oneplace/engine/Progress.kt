@@ -1,6 +1,7 @@
 package io.github.buildcool.oneplace.engine
 
 import java.util.Locale
+import org.json.JSONObject
 
 /**
  * Reads yt-dlp's output while it downloads. Progress lines come from our --progress-template
@@ -76,11 +77,58 @@ class Progress(private val streams: Int) {
         return ((item - 1 + inItem) / items * 100).coerceIn(0.0, 100.0)
     }
 
+    /** What yt-dlp told us about a finished file. */
+    class FileLine(
+        val path: String,
+        val title: String? = null,
+        val thumbnail: String? = null,
+        val duration: Double = 0.0,
+        val width: Int = 0,
+        val height: Int = 0,
+        val artist: String? = null,
+    )
+
     companion object {
         const val MARK = "[op]"
 
-        /** Printed by yt-dlp (--print after_move) once a file is completely finished. */
+        /** Printed by yt-dlp (--print after_move) once a file is completely finished, with what we know about it. */
         const val FILE_MARK = "[opfile]"
+
+        /** Printed by yt-dlp (--print before_dl) when an item starts downloading: its title and picture. */
+        const val INFO_MARK = "[opinfo]"
+
+        /** The two --print options added to every yt-dlp download. JSON keeps any title safe on one line. */
+        val PRINTS = listOf(
+            "--print", "before_dl:$INFO_MARK %(.{title,thumbnail})j",
+            "--print", "after_move:$FILE_MARK %(.{filepath,title,thumbnail,duration,width,height,uploader,channel,artist})j",
+        )
+
+        fun fileLine(line: String): FileLine? {
+            if (!line.startsWith(FILE_MARK)) return null
+            val rest = line.removePrefix(FILE_MARK).trim()
+            if (!rest.startsWith("{")) return rest.takeIf { it.isNotEmpty() }?.let { FileLine(it) }
+            val o = runCatching { JSONObject(rest) }.getOrNull() ?: return null
+            val path = o.text("filepath") ?: return null
+            return FileLine(
+                path = path,
+                title = o.text("title"),
+                thumbnail = o.text("thumbnail")?.takeIf { it.startsWith("http") },
+                duration = o.optDouble("duration", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+                width = o.optInt("width"),
+                height = o.optInt("height"),
+                artist = o.text("artist") ?: o.text("uploader") ?: o.text("channel"),
+            )
+        }
+
+        /** Title and picture of the item that is starting (null when the line is something else). */
+        fun infoLine(line: String): Pair<String?, String?>? {
+            if (!line.startsWith(INFO_MARK)) return null
+            val o = runCatching { JSONObject(line.removePrefix(INFO_MARK).trim()) }.getOrNull() ?: return Pair(null, null)
+            return Pair(o.text("title"), o.text("thumbnail")?.takeIf { it.startsWith("http") })
+        }
+
+        private fun JSONObject.text(key: String): String? =
+            if (!has(key) || isNull(key)) null else optString(key).trim().takeIf { it.isNotEmpty() && it != "NA" }
 
         /** Appended to every yt-dlp download so progress is machine-readable. */
         const val TEMPLATE =

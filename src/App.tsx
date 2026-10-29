@@ -2,15 +2,18 @@ import { App as CapApp } from '@capacitor/app';
 import { Clipboard } from '@capacitor/clipboard';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { explain } from './core/errors.ts';
 import { detect, findUrls } from './core/links.ts';
+import { loadPositions, mediaItems, resumeAt, savePosition, type MediaItem, type Positions } from './core/media.ts';
 import { EMPTY_CONFIG, loadRemoteConfig, type RemoteConfig } from './core/remoteConfig.ts';
-import { buildRequest, canAutoStart, loadSettings, quickRequest, quickTemplates, saveSettings, videoSpec, type Settings } from './core/settings.ts';
+import { buildRequest, canAutoStart, editRequest, loadSettings, quickRequest, quickTemplates, saveSettings, videoSpec, type Settings } from './core/settings.ts';
 import { SITES } from './core/sites.ts';
-import type { Job, SiteId } from './core/types.ts';
+import type { EditSpec, Job, SiteId } from './core/types.ts';
 import { checkForUpdate, type Update } from './core/update.ts';
 import { engine, type EngineStatus } from './engine/index.ts';
+import { livePosition, player, playerNow, usePlayerCoarse, watchPlayer } from './engine/player.ts';
+import type { KaraokeStatus } from './engine/types.ts';
 import { LangContext, defaultLang, translate, type Key, type Vars } from './i18n.ts';
 import { nativeStrings } from './strings.ts';
 import { handleBack } from './ui/back.ts';
@@ -24,6 +27,12 @@ import { Onboarding } from './ui/Onboarding.tsx';
 import { AboutPage, SitesPage, TestPage } from './ui/Pages.tsx';
 import { Settings as SettingsScreen, type Page } from './ui/Settings.tsx';
 import { UpdateSheet } from './ui/UpdateSheet.tsx';
+import { openExternal } from './ui/report.ts';
+import { ImageViewer } from './ui/viewer/ImageViewer.tsx';
+import { InfoSheet, ItemMenu, KaraokeSheet } from './ui/viewer/ItemSheets.tsx';
+import { MiniPlayer, NowPlaying } from './ui/viewer/NowPlaying.tsx';
+import { counterpart, toPlayItem } from './ui/viewer/play.ts';
+import { VideoPlayer } from './ui/viewer/VideoPlayer.tsx';
 
 type Tab = 'home' | 'downloads' | 'library' | 'more';
 const native = Capacitor.isNativePlatform();
@@ -40,6 +49,9 @@ function upsert(list: Job[], j: Job): Job[] {
   next[i] = j;
   return next;
 }
+
+/** The music queue's items, kept so the mini player knows them after the app was closed. */
+const QUEUE_KEY = 'op.queue';
 
 function readLocal(key: string): string | undefined {
   try {
@@ -86,6 +98,17 @@ export default function App() {
   const [battery, setBattery] = useState<boolean>();
   const [notif, setNotif] = useState<boolean>();
   const [dismissedAnn, setDismissedAnn] = useState(readLocal('op.ann'));
+  // Built-in player and viewers.
+  const [viewer, setViewer] = useState<{ kind: 'image' | 'video'; items: MediaItem[]; index: number; resume?: boolean }>();
+  const ps = usePlayerCoarse();
+  const [queue, setQueue] = useState<MediaItem[]>([]);
+  const [npOpen, setNpOpen] = useState(false);
+  const [itemMenu, setItemMenu] = useState<MediaItem>();
+  const [info, setInfo] = useState<MediaItem>();
+  const [karaoke, setKaraoke] = useState<MediaItem>();
+  const [karaokeStatus, setKaraokeStatus] = useState<KaraokeStatus>();
+  const [positions, setPositions] = useState<Positions>(() => loadPositions());
+  const [openId, setOpenId] = useState<string>();
 
   const say = useCallback((text: string, action?: { label: string; run: () => void }) => setToast({ text, action }), []);
   useEffect(() => {
@@ -145,6 +168,7 @@ export default function App() {
       engine.onJob((j) => setJobs((list) => upsert(list, j))),
       engine.onShared((text) => openLink(text)),
       engine.onStatus((s) => setStatus(s)),
+      engine.onOpenJob((id) => setOpenId(id)),
     ];
     (async () => {
       const s = await engine.status().catch(() => undefined);
@@ -152,6 +176,8 @@ export default function App() {
       setJobs(await engine.jobs().catch(() => []));
       const pending = await engine.pendingShare().catch(() => undefined);
       if (pending) openLink(pending);
+      const open = await engine.pendingOpen().catch(() => undefined);
+      if (open) setOpenId(open);
       setSessions(await engine.sessions().catch(() => []));
       if (s && !s.ready) {
         engine
@@ -180,6 +206,7 @@ export default function App() {
         siteArgs: remote.siteArgs,
         minYtDlp: remote.minYtDlp,
         fastYouTube: !remote.disabled.includes('fastYouTube'),
+        openIn: settings.openIn,
         strings: nativeStrings(settings.lang),
       })
       .catch(() => {});
@@ -315,6 +342,181 @@ export default function App() {
     setJobs((list) => list.filter((j) => !ids.includes(j.id)));
   };
 
+  // ---------- built-in player and viewers ----------
+
+  const items = useMemo(() => mediaItems(jobs), [jobs]);
+  const byKey = useMemo(() => new Map(items.map((it) => [it.key, it])), [items]);
+  const current = ps.id ? byKey.get(ps.id) : undefined;
+  const tr = (key: Key, vars?: Vars) => translate(settingsRef.current.lang, key, vars);
+
+  // Remember where videos and long recordings were left (every 5 s while playing, and on pause).
+  const byKeyRef = useRef(byKey);
+  byKeyRef.current = byKey;
+  useEffect(() => {
+    let last = 0;
+    let wasPlaying = false;
+    return watchPlayer((s) => {
+      const it = s.id ? byKeyRef.current.get(s.id) : undefined;
+      const stopped = wasPlaying && !s.playing;
+      wasPlaying = s.playing;
+      if (!it || it.kind === 'image' || !s.duration || s.duration < (it.kind === 'video' ? 60 : 600)) return;
+      const at = Date.now();
+      if (!stopped && at - last < 5000) return;
+      last = at;
+      setPositions(savePosition(it.file.uri, s.ended ? s.duration : livePosition(s), s.duration));
+    });
+  }, []);
+
+  // The music queue survives the app being closed while it plays.
+  useEffect(() => {
+    if (queue.length || ps.idle || !items.length) return;
+    const keys = (readLocal(QUEUE_KEY) ?? '').split('\n');
+    const list = keys.map((k) => byKey.get(k)).filter((x): x is MediaItem => !!x);
+    if (list.length) setQueue(list);
+  }, [queue.length, ps.idle, items.length, byKey]);
+
+  const setPlayQueue = (list: MediaItem[]) => {
+    setQueue(list);
+    writeLocal(QUEUE_KEY, list.map((it) => it.key).join('\n'));
+  };
+
+  const playAudio = (list: MediaItem[], index: number, shuffle = false) => {
+    const it = list[index];
+    if (!it) return;
+    const at = settingsRef.current.resume && (it.dur ?? 0) >= 600 ? resumeAt(loadPositions()[it.file.uri]?.[0], it.dur) : 0;
+    setPlayQueue(list);
+    void player
+      .load({ items: list.map(toPlayItem), index, position: at, video: false })
+      .then(() => player.control('shuffle', shuffle ? 1 : 0))
+      .catch(() => say(tr('vp.cantPlay')));
+    setNpOpen(true);
+  };
+
+  /** Open a Library item: photos in the viewer, videos in the player, songs in the music player (or another app). */
+  const openItem = (it: MediaItem, list: MediaItem[]) => {
+    if (settingsRef.current.openIn === 'other') {
+      void engine.open(it.jobId, it.index, { uri: it.file.uri }).catch(() => say(tr('err.noApp')));
+      return;
+    }
+    const same = list.filter((x) => x.kind === it.kind);
+    const index = Math.max(0, same.findIndex((x) => x.key === it.key));
+    if (it.kind === 'image') setViewer({ kind: 'image', items: same, index });
+    else if (it.kind === 'video') {
+      setNpOpen(false);
+      setViewer({ kind: 'video', items: same, index });
+    } else playAudio(same, index);
+  };
+
+  /** A finished download from Downloads, Home or its notification. */
+  const openJob = (j: Job) => {
+    const list = mediaItems([j]);
+    if (list.length) openItem(list[0]!, list);
+    else setMenuJob(j);
+  };
+
+  // "Downloaded" notification tapped: show that download once the list is loaded.
+  useEffect(() => {
+    if (!openId) return;
+    const j = jobs.find((x) => x.id === openId);
+    if (!j) return;
+    setOpenId(undefined);
+    openJob(j);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, jobs]);
+
+  const closeVideo = (keepPlaying: boolean) => {
+    const v = viewer;
+    setViewer(undefined);
+    if (keepPlaying && v) {
+      setPlayQueue(v.items);
+      say(tr('vp.background'));
+    } else void player.control('stop');
+  };
+
+  /** Mini player tapped: a video playing as sound gets its picture back, music opens the player. */
+  const openNowPlaying = () => {
+    if (current?.kind === 'video') {
+      const vids = queue.filter((x) => x.kind === 'video');
+      const list = vids.length ? vids : [current];
+      setViewer({ kind: 'video', items: list, index: Math.max(0, list.findIndex((x) => x.key === current.key)), resume: true });
+    } else setNpOpen(true);
+  };
+
+  /** Karaoke copy ↔ original, at the same moment of the song. */
+  const swap = (to: MediaItem) => {
+    const from = current;
+    if (!from) return openItem(to, [to]);
+    const base = viewer?.kind === 'video' ? viewer.items : queue.length ? queue : [from];
+    const list = base.map((x) => (x.key === from.key ? to : x));
+    const index = Math.max(0, list.findIndex((x) => x.key === to.key));
+    setPlayQueue(list);
+    if (viewer?.kind === 'video') setViewer({ ...viewer, items: list, index, resume: true });
+    void player.load({ items: list.map(toPlayItem), index, position: livePosition(playerNow()), video: viewer?.kind === 'video' });
+  };
+
+  const refs = (list: MediaItem[]) => list.map((it) => ({ id: it.jobId, uri: it.file.uri }));
+
+  const deleteItems = async (list: MediaItem[]) => {
+    if (list.some((it) => it.key === ps.id)) await player.control('stop').catch(() => {});
+    await engine.removeFiles(refs(list)).catch(() => {});
+    setJobs(await engine.jobs().catch(() => jobs));
+    if (viewer) {
+      const left = viewer.items.filter((x) => !list.some((d) => d.key === x.key));
+      if (!left.length || viewer.kind === 'video') setViewer(undefined);
+      else setViewer({ ...viewer, items: left, index: Math.min(viewer.index, left.length - 1) });
+    }
+    say(tr('lib.deleted'));
+  };
+
+  const openWith = (it: MediaItem) => void engine.open(it.jobId, it.index, { uri: it.file.uri, chooser: true }).catch(() => say(tr('err.noApp')));
+
+  const askKaraoke = (it: MediaItem) => {
+    setKaraoke(it);
+    setKaraokeStatus(undefined);
+    engine
+      .karaoke()
+      .then(setKaraokeStatus)
+      .catch(() => {});
+  };
+
+  const startKaraoke = async (it: MediaItem, keep: EditSpec['keep'], as: EditSpec['as']) => {
+    const job = jobs.find((j) => j.id === it.jobId);
+    setKaraoke(undefined);
+    if (!job) return;
+    try {
+      const nj = await engine.enqueue(editRequest({ job, index: it.index, title: it.title, isVideo: it.kind === 'video', keep, as, bitrate: settingsRef.current.mp3Bitrate }));
+      setJobs((l) => upsert(l, nj));
+      say(tr('kar.started'), {
+        label: tr('tab.downloads'),
+        run: () => {
+          setViewer(undefined);
+          setNpOpen(false);
+          setPage(undefined);
+          setTab('downloads');
+        },
+      });
+    } catch (e) {
+      say(String((e as Error)?.message ?? e));
+    }
+  };
+
+  const copyLink = async (url: string) => {
+    if (native) await Clipboard.write({ string: url }).catch(() => {});
+    else await navigator.clipboard?.writeText(url).catch(() => {});
+    say(tr('common.copied'));
+  };
+
+  const checkFiles = useCallback(() => {
+    engine
+      .checkFiles()
+      .then((n) => (n ? engine.jobs().then(setJobs) : undefined))
+      .catch(() => {});
+  }, []);
+
+  const karaokeStatusOf = useCallback(() => engine.karaoke(), []);
+  const pipOk = native && (status?.sdk ?? 0) >= 26;
+  const showMini = !ps.idle && !!ps.id && !npOpen && viewer?.kind !== 'video' && settings.onboarded;
+
   const activeCount = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length;
 
   // While downloads are active, re-read the list every 2 s so the screen never shows a stale state.
@@ -369,7 +571,7 @@ export default function App() {
           setTab('more');
           setPage('sites');
         }}
-        onOpenJob={(j) => void engine.open(j.id).catch(() => setMenuJob(j))}
+        onOpenJob={openJob}
         onRetryEngine={() =>
           engine
             .prepare()
@@ -385,12 +587,28 @@ export default function App() {
         onCancel={(j) => void engine.cancel(j.id)}
         onRetry={(j) => void engine.retry(j.id)}
         onFix={(j) => void fixJob(j)}
-        onOpen={(j) => void engine.open(j.id).catch(() => setMenuJob(j))}
+        onOpen={openJob}
         onMenu={setMenuJob}
         onClearFinished={() => void removeJobs(jobs.filter((j) => j.status === 'done' || j.status === 'canceled').map((j) => j.id), false)}
       />
     );
-  else if (tab === 'library') screen = <Library jobs={jobs} onOpen={(j) => void engine.open(j.id).catch(() => setMenuJob(j))} onMenu={setMenuJob} />;
+  else if (tab === 'library')
+    screen = (
+      <Library
+        jobs={jobs}
+        lang={settings.lang}
+        sort={settings.libSort}
+        positions={positions}
+        playingKey={ps.playing ? ps.id : undefined}
+        onSort={(libSort) => update({ libSort })}
+        onOpen={openItem}
+        onPlayAll={(list, shuffle) => playAudio(list, shuffle ? Math.floor(Math.random() * list.length) : 0, shuffle)}
+        onMenu={setItemMenu}
+        onShare={(list) => void engine.shareFiles(refs(list)).catch(() => {})}
+        onDelete={(list) => void deleteItems(list)}
+        onCheck={checkFiles}
+      />
+    );
   else
     screen = (
       <SettingsScreen
@@ -426,13 +644,21 @@ export default function App() {
         onBattery={() => void engine.openBatterySettings()}
         onNotifications={() => void engine.requestNotifications().then(setNotif)}
         onAddTile={() => engine.addTile().catch(() => false)}
+        pipOk={pipOk}
+        onKaraokeStatus={karaokeStatusOf}
+        onKaraokeDelete={async () => {
+          await engine.deleteKaraoke().catch(() => {});
+          say(t('set.karaokeDeleted'));
+        }}
         onPage={setPage}
       />
     );
 
   return (
     <LangContext.Provider value={settings.lang}>
-      <div className="app">{screen}</div>
+      <div className={`app${showMini ? ' with-mini' : ''}`}>{screen}</div>
+
+      {showMini ? <MiniPlayer cur={current} onOpen={openNowPlaying} /> : null}
 
       <nav className="nav" aria-label="Main">
         {nav.map((n) => (
@@ -473,7 +699,8 @@ export default function App() {
         <JobMenu
           job={jobs.find((j) => j.id === menuJob.id) ?? menuJob}
           onClose={() => setMenuJob(undefined)}
-          onOpen={(j) => void engine.open(j.id)}
+          onOpen={openJob}
+          onOpenWith={(j) => void engine.open(j.id, 0, { chooser: true }).catch(() => say(t('err.noApp')))}
           onShare={(j) => void engine.share(j.id)}
           onRetry={(j) => void engine.retry(j.id)}
           onRemove={(j, deleteFiles) => void removeJobs([j.id], deleteFiles)}
@@ -493,8 +720,65 @@ export default function App() {
         />
       ) : null}
 
+      {viewer?.kind === 'image' ? (
+        <ImageViewer items={viewer.items} index={viewer.index} onClose={() => setViewer(undefined)} onShare={(it) => void engine.share(it.jobId, it.file.uri).catch(() => {})} onMenu={setItemMenu} />
+      ) : null}
+
+      {viewer?.kind === 'video' ? (
+        <VideoPlayer
+          key={viewer.items[0]?.key}
+          items={viewer.items}
+          index={viewer.index}
+          resume={viewer.resume}
+          settings={settings}
+          pipOk={pipOk}
+          onClose={closeVideo}
+          onMenu={setItemMenu}
+          onOpenWith={openWith}
+          onToast={say}
+        />
+      ) : null}
+
+      {npOpen && !ps.idle ? (
+        <NowPlaying
+          cur={current}
+          queue={queue.length ? queue : current ? [current] : []}
+          alt={counterpart(current, items)}
+          onClose={() => setNpOpen(false)}
+          onMenu={setItemMenu}
+          onSwap={swap}
+          onWatch={() => {
+            setNpOpen(false);
+            openNowPlaying();
+          }}
+          onToast={say}
+        />
+      ) : null}
+
+      {itemMenu ? (
+        <ItemMenu
+          item={byKey.get(itemMenu.key) ?? itemMenu}
+          alt={counterpart(byKey.get(itemMenu.key) ?? itemMenu, items)}
+          inPlayer={itemMenu.key === ps.id && (npOpen || viewer?.kind === 'video')}
+          onClose={() => setItemMenu(undefined)}
+          onOpen={(it) => openItem(it, items)}
+          onOpenWith={openWith}
+          onShare={(it) => void engine.share(it.jobId, it.file.uri).catch(() => {})}
+          onKaraoke={askKaraoke}
+          onInfo={setInfo}
+          onSwap={swap}
+          onSource={(it) => openExternal(it.url)}
+          onCopyLink={(it) => void copyLink(it.url)}
+          onDelete={(it) => void deleteItems([it])}
+        />
+      ) : null}
+
+      {info ? <InfoSheet item={info} onClose={() => setInfo(undefined)} onSource={(it) => openExternal(it.url)} /> : null}
+
+      {karaoke ? <KaraokeSheet item={karaoke} status={karaokeStatus} onClose={() => setKaraoke(undefined)} onStart={(keep, as) => void startKaraoke(karaoke, keep, as)} /> : null}
+
       {toast ? (
-        <div className="toast" role="status">
+        <div className={`toast${showMini ? ' above-mini' : ''}`} role="status">
           <span className="grow">{toast.text}</span>
           {toast.action ? (
             <button

@@ -7,7 +7,9 @@ import io.github.buildcool.oneplace.engine.Engines
 import io.github.buildcool.oneplace.engine.InfoCache
 import io.github.buildcool.oneplace.engine.Progress
 import io.github.buildcool.oneplace.engine.Runner
+import io.github.buildcool.oneplace.edit.VocalRemover
 import io.github.buildcool.oneplace.storage.Saver
+import io.github.buildcool.oneplace.storage.Thumbs
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -45,6 +47,11 @@ object Queue {
 
     /** Source files already copied to shared storage, per job (so nothing is saved twice). */
     private val published = ConcurrentHashMap<String, MutableSet<String>>()
+
+    /** Frames grabbed from videos while they download: when we last tried and how often (per job). */
+    private val previewAt = ConcurrentHashMap<String, Long>()
+    private val previewTries = ConcurrentHashMap<String, Int>()
+    private val VIDEO_FILE = Regex("""\.(mp4|webm|mkv|mov|m4v|ts|flv|3gp)(\.part)?$""", RegexOption.IGNORE_CASE)
 
     @Volatile
     private var lastSummary = 0L
@@ -181,7 +188,7 @@ object Queue {
         }
         Engines.ensureReady(ctx)
         job.line = null
-        if (Config.autoEngineUpdate(ctx) && Engines.olderThan(Engines.ytdlpVersion(ctx), Config.minYtDlp(ctx))) {
+        if (job.template.engine == "ytdlp" && Config.autoEngineUpdate(ctx) && Engines.olderThan(Engines.ytdlpVersion(ctx), Config.minYtDlp(ctx))) {
             runCatching { Engines.updateYtDlp(ctx) }
         }
         // Downloading, merging and copying into shared storage briefly needs about twice the file size.
@@ -223,6 +230,8 @@ object Queue {
         // Files that were not announced while running (thumbnails…) only count when the run succeeded.
         if (res.code == 0) collect(out()).forEach { publishNow(ctx, job, it, deleteSource = true) }
         published.remove(job.id)
+        previewAt.remove(job.id)
+        previewTries.remove(job.id)
         if (job.files.isEmpty()) {
             val why = if (res.code == 0) "Nothing was downloaded.\n${res.err.takeLast(2000)}" else res.err.ifBlank { "exit code ${res.code}" }
             fail(ctx, job, why)
@@ -246,8 +255,11 @@ object Queue {
         cleanup(dir)
     }
 
-    /** Copy a finished file into Movies/Music/Pictures right away (long playlists fill up as they go). */
-    private fun publishNow(ctx: Context, job: Job, file: File, deleteSource: Boolean) {
+    /**
+     * Copy a finished file into Movies/Music/Pictures right away (long playlists fill up as they go).
+     * [meta] is what yt-dlp said about it; the picture and the rest are made in the background (Thumbs).
+     */
+    private fun publishNow(ctx: Context, job: Job, file: File, deleteSource: Boolean, meta: Progress.FileLine? = null) {
         val done = published.getOrPut(job.id) { ConcurrentHashMap.newKeySet() }
         val path = file.absolutePath
         if (!file.isFile || file.length() == 0L || !done.add(path)) return
@@ -258,9 +270,54 @@ object Queue {
             return
         }
         if (deleteSource) file.delete()
-        job.files = job.files + saved
+        val full = if (meta == null) {
+            saved
+        } else {
+            saved.copy(title = meta.title, artist = meta.artist, dur = meta.duration, w = meta.width, h = meta.height, cover = meta.thumbnail)
+        }
+        job.addFile(full)
         JobStore.save(job)
         emit(job, true)
+        if (Thumbs.isMedia(full)) Thumbs.later(ctx, job, full.uri)
+    }
+
+    /** yt-dlp is about to download an item: links started before they were read get their title and picture now. */
+    private fun startedItem(job: Job, title: String?, thumb: String?) {
+        var changed = false
+        if (job.thumb.isNullOrBlank() && thumb != null) {
+            job.thumb = thumb
+            changed = true
+        }
+        if (job.titleFromFile && !job.isPlaylist && title != null) {
+            job.title = title
+            job.titleFromFile = false
+            changed = true
+        }
+        if (changed) {
+            JobStore.save(job)
+            emit(job, true)
+        }
+    }
+
+    /**
+     * A picture from the video itself while it downloads, for sites that give none (or whose picture does not
+     * load): once the file has ~0.5 MB, try every 3 s, at most 6 times.
+     */
+    private fun livePreview(ctx: Context, job: Job, dir: File, name: String?) {
+        if (name == null || job.preview != null || job.mode == "audio" || !VIDEO_FILE.containsMatchIn(name)) return
+        val now = System.currentTimeMillis()
+        if (now - (previewAt[job.id] ?: 0L) < 3000) return
+        val tries = previewTries[job.id] ?: 0
+        if (tries >= 6) return
+        val part = dir.walkTopDown().maxDepth(3).firstOrNull { (it.name == "$name.part" || it.name == name) && it.length() > 512 * 1024 } ?: return
+        previewAt[job.id] = now
+        previewTries[job.id] = tries + 1
+        scope.launch {
+            if (Thumbs.liveFrame(ctx, job, part)) {
+                JobStore.save(job)
+                emit(job, true)
+            }
+        }
     }
 
     /** yt-dlp's record of finished playlist items, so resumes and retries skip them. */
@@ -284,6 +341,13 @@ object Queue {
                     }
                 }
             }
+            "edit" -> VocalRemover.run(ctx, job, dir) { p, line ->
+                job.progress = p
+                job.line = line
+                emit(job)
+                persist(job)
+                summaryTick(ctx)
+            }
             "http" -> withContext(Dispatchers.IO) {
                 val err = HttpJob.run(job, dir) { p ->
                     job.progress = p
@@ -299,12 +363,16 @@ object Queue {
                 val args = t.args +
                     listOf("-P", dir.absolutePath, "--cache-dir", Engines.cacheDir(ctx), "--progress-template", Progress.TEMPLATE) +
                     // --print would make yt-dlp quiet; --no-quiet keeps the progress lines we read.
-                    listOf("--no-quiet", "--print", "after_move:${Progress.FILE_MARK} %(filepath)s") +
+                    listOf("--no-quiet") + Progress.PRINTS +
                     archive + Engines.cookieArgs(ctx, job.site) + Engines.speedArgs(job.site) + Config.siteArgs(ctx, job.site) +
                     (if (fast) Engines.fastArgs(ctx, job.site) else emptyList()) + target
                 Runner.ytdlp(ctx, job.id, args) { line ->
-                    if (line.startsWith(Progress.FILE_MARK)) {
-                        publishNow(ctx, job, File(line.removePrefix(Progress.FILE_MARK).trim()), deleteSource = true)
+                    Progress.fileLine(line)?.let { f ->
+                        publishNow(ctx, job, File(f.path), deleteSource = true, meta = f)
+                        return@ytdlp
+                    }
+                    Progress.infoLine(line)?.let { (title, thumb) ->
+                        startedItem(job, title, thumb)
                         return@ytdlp
                     }
                     if (tracker.feed(line)) {
@@ -313,6 +381,7 @@ object Queue {
                         job.speed = tracker.speed
                         job.line = if (tracker.processing) line.take(120) else null
                         if (job.titleFromFile) tracker.destination?.let { job.title = Progress.titleOf(it) }
+                        livePreview(ctx, job, dir, tracker.destination)
                         emit(job)
                         persist(job)
                         summaryTick(ctx)
@@ -352,7 +421,7 @@ object Queue {
         job.status = "canceled"
         job.speed = null
         job.line = null
-        Runner.kill(id)
+        Runner.killGroup(id)
         published.remove(id)
         JobStore.save(job)
         emit(job, true)
@@ -383,6 +452,7 @@ object Queue {
             val job = JobStore.get(id) ?: continue
             cancel(ctx, id)
             if (deleteFiles) Saver.delete(ctx, job.files)
+            Thumbs.forget(ctx, job)
             Notifier.cancel(ctx, job)
             archiveOf(ctx, id).delete()
             JobStore.remove(id)
@@ -396,7 +466,7 @@ object Queue {
         JobStore.active().filter { it.status == "running" }.forEach { job ->
             job.status = "queued"
             job.speed = null
-            Runner.kill(job.id)
+            Runner.killGroup(job.id)
             JobStore.save(job)
             emit(job, true)
         }

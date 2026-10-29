@@ -228,6 +228,35 @@ object Runner {
         return pb.start()
     }
 
+    /**
+     * ffmpeg with raw pipes (the vocal remover streams sound through it). Registered under [id] so cancel
+     * stops it; call [finished] when done. stderr must be read by the caller.
+     */
+    fun startFfmpeg(ctx: Context, id: String, args: List<String>): Process {
+        val p = Paths(ctx)
+        val pb = ProcessBuilder(listOf(p.ffmpeg.absolutePath, "-hide_banner", "-nostats") + args)
+        pb.environment().apply {
+            put("LD_LIBRARY_PATH", p.libPath)
+            put("TMPDIR", p.tmp.absolutePath)
+        }
+        val process = pb.start()
+        running.put(id, Running(process))?.let { old ->
+            old.killed = true
+            old.process.destroy()
+        }
+        return process
+    }
+
+    fun finished(id: String, process: Process) {
+        running[id]?.takeIf { it.process === process }?.let { running.remove(id, it) }
+    }
+
+    /** Stop a job's runs: [id] itself and helpers registered as "id#…" (the vocal remover's encoders). */
+    fun killGroup(id: String) {
+        kill(id)
+        running.keys.filter { it.startsWith("$id#") }.forEach { kill(it) }
+    }
+
     /** Stop a run and everything it started (ffmpeg, aria2c). */
     fun kill(id: String): Boolean {
         val r = running[id] ?: return false

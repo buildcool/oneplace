@@ -21,6 +21,9 @@ export type ErrorCode =
   | 'network'
   | 'space'
   | 'canceled'
+  | 'nosource'
+  | 'aisetup'
+  | 'aifail'
   | 'unknown';
 
 /** What the fix button does. */
@@ -35,6 +38,10 @@ export interface Explained {
 
 const RULES: [RegExp, ErrorCode][] = [
   [/no space left|ENOSPC|disk full/i, 'space'],
+  // Vocal remover (android/.../edit/VocalRemover.kt).
+  [/Vocal remover: the original file is gone/i, 'nosource'],
+  [/Vocal remover download failed/i, 'aisetup'],
+  [/Vocal remover failed/i, 'aifail'],
   [/DRM|protected by digital rights/i, 'drm'],
   [/There is no video in this post|No video could be found|No video formats found|no media found/i, 'novideo'],
   [/Premieres in|This live event will begin|will begin in a few moments|Scheduled for/i, 'upcoming'],
@@ -78,6 +85,9 @@ const FIX: Record<ErrorCode, FixAction> = {
   network: 'retry',
   space: 'folder',
   canceled: 'retry',
+  nosource: 'none',
+  aisetup: 'retry',
+  aifail: 'report',
   unknown: 'report',
 };
 

@@ -23,6 +23,21 @@ export interface EngineStatus {
   official?: boolean;
 }
 
+/** A file inside a download (the uri identifies it; positions can change when files are deleted). */
+export interface FileRef {
+  id: string;
+  uri: string;
+}
+
+/** The vocal remover's one-time download (AI engine + voice model). */
+export interface KaraokeStatus {
+  installed: boolean;
+  /** Space used on the phone now. */
+  bytes: number;
+  /** What the first use downloads. */
+  download: number;
+}
+
 export interface InfoResult {
   engine: EngineId;
   json: string;
@@ -41,6 +56,8 @@ export interface NativeConfig {
   minYtDlp?: string;
   /** YouTube's quick client first (no JavaScript challenge); remote config can switch it off. */
   fastYouTube: boolean;
+  /** Where "Downloaded" notifications open files. */
+  openIn: 'app' | 'other';
   /** Localised notification texts. */
   strings: Record<string, string>;
 }
@@ -66,8 +83,19 @@ export interface Engine {
   cancel(id: string): Promise<void>;
   retry(id: string): Promise<void>;
   remove(ids: string[], deleteFiles: boolean): Promise<void>;
-  open(id: string, index?: number): Promise<void>;
-  share(id: string): Promise<void>;
+  /** Open a file in another app (chooser: always ask which app). */
+  open(id: string, index?: number, opts?: { uri?: string; chooser?: boolean }): Promise<void>;
+  /** Share one file of a download, or all of them. */
+  share(id: string, uri?: string): Promise<void>;
+  shareFiles(refs: FileRef[]): Promise<void>;
+  /** Delete files from the phone; downloads left without files are removed too. */
+  removeFiles(refs: FileRef[]): Promise<void>;
+  /** Forget files that were deleted in another app. Returns how many. */
+  checkFiles(): Promise<number>;
+  karaoke(): Promise<KaraokeStatus>;
+  deleteKaraoke(): Promise<void>;
+  /** A download whose "Downloaded" notification was tapped before the UI was ready. */
+  pendingOpen(): Promise<string | undefined>;
   updateEngines(force?: boolean): Promise<EngineStatus & { changed: boolean }>;
   login(o: { site: string; url: string; cookieUrls: string[]; title: string }): Promise<{ saved: boolean }>;
   logout(o: { site: string; cookieUrls: string[] }): Promise<void>;
@@ -91,6 +119,8 @@ export interface Engine {
   addTile(): Promise<boolean>;
   onJob(cb: (job: Job) => void): () => void;
   onShared(cb: (text: string) => void): () => void;
+  /** "Downloaded" notification tapped while the app runs: show that download. */
+  onOpenJob(cb: (id: string) => void): () => void;
   onUpdateProgress(cb: (p: UpdateProgress) => void): () => void;
   onStatus(cb: (s: EngineStatus) => void): () => void;
 }

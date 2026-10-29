@@ -7,6 +7,13 @@ Download **videos, music, photos and thumbnails** from YouTube, YouTube Music, I
 - **Share → download in 2 taps** from any app, or use the 1-tap share targets **OnePlace · Video / · MP3 / · Thumbnail**.
 - **Everything runs on your phone**: [yt-dlp](https://github.com/yt-dlp/yt-dlp), [gallery-dl](https://github.com/mikf/gallery-dl), FFmpeg and QuickJS inside the APK (via [youtubedl-android](https://github.com/yausername/youtubedl-android)). No servers, no ads, no tracking, no account.
 - **Self-updating**: the engines update themselves when sites change; the app updates itself from GitHub Releases.
+- **Built-in player and gallery**:
+  - a video player with gestures, picture-in-picture and background play
+  - a music player with lock-screen controls
+  - a photo viewer
+  - a Library that works like a gallery
+  - "Open with another app" is always one tap away
+- **Remove vocals (karaoke)** on the phone with [Spleeter](https://github.com/deezer/spleeter) (via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)'s ONNX export and [ONNX Runtime](https://onnxruntime.ai)). It downloads once, on first use.
 - English, Hinglish and हिंदी.
 
 ## Install

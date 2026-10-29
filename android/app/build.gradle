@@ -50,8 +50,13 @@ android {
         }
     }
     packaging {
-        // Python, ffmpeg and QuickJS ship as lib*.so files that are executed, so they must be extracted on install.
-        jniLibs { useLegacyPackaging = true }
+        jniLibs {
+            // Python, ffmpeg and QuickJS ship as lib*.so files that are executed, so they must be extracted on install.
+            useLegacyPackaging = true
+            // ONNX Runtime's engine (32 MB) is downloaded by the vocal remover on first use (edit/Ml.kt);
+            // only its small JNI part stays in the APK.
+            excludes.add('**/libonnxruntime.so')
+        }
     }
     buildFeatures {
         buildConfig true
@@ -74,6 +79,13 @@ repositories {
 }
 
 def youtubedlAndroid = "0.18.1"
+def media3 = "1.11.1"
+def onnxRuntime = "1.31.1"
+
+configurations {
+    // The AAR itself, to fingerprint the engine library the app downloads later.
+    ortAar { transitive = false }
+}
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
@@ -89,6 +101,14 @@ dependencies {
     implementation "io.github.junkfood02.youtubedl-android:aria2c:$youtubedlAndroid"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
     implementation "androidx.work:work-runtime-ktx:2.10.5"
+    // Built-in player: video, music in the background, lock-screen controls.
+    implementation "androidx.media3:media3-exoplayer:$media3"
+    implementation "androidx.media3:media3-session:$media3"
+    implementation "androidx.media3:media3-ui:$media3"
+    // Vocal remover (Spleeter on the phone).
+    implementation "com.microsoft.onnxruntime:onnxruntime-android:$onnxRuntime"
+    ortAar "com.microsoft.onnxruntime:onnxruntime-android:$onnxRuntime@aar"
+    testImplementation "com.microsoft.onnxruntime:onnxruntime:$onnxRuntime"
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.json:json:20240303"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
@@ -97,3 +117,25 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// SHA-256 of libonnxruntime.so per CPU type, from the same AAR the app fetches it from (checked after download).
+def ortHashes = {
+    def out = []
+    new java.util.zip.ZipFile(configurations.ortAar.singleFile).withCloseable { zip ->
+        zip.entries().each { e ->
+            def m = e.name =~ /^jni\/([^\/]+)\/libonnxruntime\.so$/
+            if (m.matches()) {
+                def md = java.security.MessageDigest.getInstance("SHA-256")
+                zip.getInputStream(e).withCloseable { s ->
+                    byte[] buf = new byte[65536]
+                    int n
+                    while ((n = s.read(buf)) > 0) md.update(buf, 0, n)
+                }
+                out << "${m.group(1)}=${md.digest().encodeHex()}"
+            }
+        }
+    }
+    out.sort().join(";")
+}
+android.defaultConfig.buildConfigField "String", "ORT_VERSION", "\"$onnxRuntime\""
+android.defaultConfig.buildConfigField "String", "ORT_SO_SHA256", "\"${ortHashes()}\""

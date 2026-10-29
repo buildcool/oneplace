@@ -22,11 +22,14 @@ export function jobLine(j: Job, t: T): string {
     case 'paused':
       return t('st.paused');
     case 'running': {
+      // Vocal remover: its stage ("Removing vocals") and how far.
+      if (j.edit) return [j.line || t('st.starting'), j.progress >= 0 ? `${Math.round(j.progress)}%` : ''].filter(Boolean).join(' · ');
       if (j.progress < 0) return j.line && !POSTPROCESS.test(j.line) ? j.line : t('st.starting');
       if (j.progress >= 99.5 || POSTPROCESS.test(j.line ?? '')) return t('st.processing');
       return [`${Math.round(j.progress)}%`, j.speed, j.eta > 0 ? t('st.left', { time: duration(j.eta) }) : ''].filter(Boolean).join(' · ');
     }
     case 'done':
+      if (!j.files.length) return t('st.gone');
       // A playlist where some videos failed (deleted, private…) still keeps the ones that worked.
       return [bytes(totalSize(j)), j.files.length > 1 ? `${j.files.length} files` : '', j.error ? t('st.partial') : ''].filter(Boolean).join(' · ');
     case 'canceled':
