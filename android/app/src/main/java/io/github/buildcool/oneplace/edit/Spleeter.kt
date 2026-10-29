@@ -41,6 +41,13 @@ class Spleeter(private val models: StemModels) {
         private const val EPS = 1e-10f
         private const val OVERLAP = N_FFT / HOP
 
+        /**
+         * The first and last ~1000 samples are covered by one frame only, whose window is nearly zero at its edge;
+         * dividing by that turns tiny differences into loud clicks (sherpa-onnx has them). With this floor those
+         * ~18 ms fade in/out instead. Everywhere else the weight is at least 0.25, so nothing changes there.
+         */
+        private const val MIN_WEIGHT = 0.1f
+
         val WINDOW = FloatArray(N_FFT) { (0.5 - 0.5 * cos(2 * PI * it / N_FFT)).toFloat() }
 
         /** Σ window² of the 4 frames over a sample, by its place within a hop (the same everywhere but the ends). */
@@ -204,8 +211,8 @@ class Spleeter(private val models: StemModels) {
             val n = minOf(pcm.size / 2, count - done)
             for (i in 0 until n) {
                 val pos = stem.start + done + i
-                val w = weight(pos, lastFrame)
-                for (ch in 0..1) pcm[2 * i + ch] = if (w > 1e-8f) stem.acc[ch][done + i] / w else 0f
+                val w = maxOf(weight(pos, lastFrame), MIN_WEIGHT)
+                for (ch in 0..1) pcm[2 * i + ch] = stem.acc[ch][done + i] / w
             }
             stem.out.write(pcm, n)
             done += n

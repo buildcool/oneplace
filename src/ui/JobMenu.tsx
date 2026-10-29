@@ -15,12 +15,14 @@ interface Props {
   onOpen: (j: Job) => void;
   onOpenWith: (j: Job) => void;
   onShare: (j: Job) => void;
+  /** Make a karaoke copy (songs and videos that are not copies themselves). */
+  onKaraoke?: (j: Job) => void;
   onRetry: (j: Job) => void;
   onRemove: (j: Job, deleteFiles: boolean) => void;
   onToast: (text: string) => void;
 }
 
-export function JobMenu({ job, onClose, onOpen, onOpenWith, onShare, onRetry, onRemove, onToast }: Props) {
+export function JobMenu({ job, onClose, onOpen, onOpenWith, onShare, onKaraoke, onRetry, onRemove, onToast }: Props) {
   const t = useT();
   const [confirm, setConfirm] = useState(false);
   const done = job.status === 'done' && job.files.length > 0;
@@ -50,6 +52,7 @@ export function JobMenu({ job, onClose, onOpen, onOpenWith, onShare, onRetry, on
         {done ? item(job.dest === 'image' ? 'image' : 'play', job.dest === 'image' ? t('act.view') : t('act.play'), () => (onOpen(job), onClose())) : null}
         {done ? item('openWith', t('act.openWith'), () => (onOpenWith(job), onClose())) : null}
         {done ? item('share', t('act.share'), () => (onShare(job), onClose())) : null}
+        {done && onKaraoke && !job.edit && job.files.some((f) => /^(audio|video)\//.test(f.mime)) ? item('micOff', t('act.karaoke'), () => (onKaraoke(job), onClose())) : null}
         {job.status === 'failed' || job.status === 'canceled' || (done && job.error) ? item('refresh', t('act.retry'), () => (onRetry(job), onClose())) : null}
         {job.status === 'done' && !done ? item('download', t('act.again'), () => (onRetry(job), onClose())) : null}
         {item('external', t('act.source'), () => openExternal(job.url))}

@@ -702,6 +702,10 @@ export default function App() {
           onOpen={openJob}
           onOpenWith={(j) => void engine.open(j.id, 0, { chooser: true }).catch(() => say(t('err.noApp')))}
           onShare={(j) => void engine.share(j.id)}
+          onKaraoke={(j) => {
+            const it = mediaItems([j]).find((x) => x.kind !== 'image');
+            if (it) askKaraoke(it);
+          }}
           onRetry={(j) => void engine.retry(j.id)}
           onRemove={(j, deleteFiles) => void removeJobs([j.id], deleteFiles)}
           onToast={say}

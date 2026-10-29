@@ -118,6 +118,15 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Full messages and printed lines from unit tests in the CI log (the vocal remover check prints its SNR).
+tasks.withType(Test).configureEach {
+    testLogging {
+        events "failed", "skipped"
+        exceptionFormat "full"
+        showStandardStreams = true
+    }
+}
+
 // SHA-256 of libonnxruntime.so per CPU type, from the same AAR the app fetches it from (checked after download).
 def ortHashes = {
     def out = []

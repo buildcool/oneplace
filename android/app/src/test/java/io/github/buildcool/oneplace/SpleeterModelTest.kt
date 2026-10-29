@@ -47,11 +47,12 @@ class SpleeterModelTest {
             Spleeter(models).separate(source, sink, null, mix.size / 2L, {}, { false })
         }
         val ms = System.currentTimeMillis() - started
-        // Same frames on both sides (the clip length is chosen for that); skip the first frame's ramp.
+        // Same frames on both sides (the clip length is chosen for that). Skip one frame at each end: there
+        // sherpa-onnx divides by a near-zero window weight (big spikes) where we write silence.
         val n = minOf(ref.size, at)
         var signal = 0.0
         var noise = 0.0
-        for (i in 2 * Spleeter.N_FFT until n) {
+        for (i in 2 * Spleeter.N_FFT until n - 2 * Spleeter.N_FFT) {
             signal += ref[i].toDouble() * ref[i]
             val d = (ref[i] - ours[i]).toDouble()
             noise += d * d

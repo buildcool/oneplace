@@ -29,6 +29,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MediaLogicTest {
+    /** Interleaved samples at each end where one frame covers a sample (they fade in/out). */
+    private val EDGE = 2 * Spleeter.N_FFT
+
     @Test
     fun realFftMatchesTheDefinitionAndInverts() {
         val n = 64
@@ -108,9 +111,9 @@ class MediaLogicTest {
         val m = music.samples()
         assertEquals(mix.size, v.size)
         assertEquals(mix.size, m.size)
-        // Sample 0 has no window weight (as in sherpa-onnx); everything after must add back up.
+        // The first and last few samples have (almost) no window weight and come out silent, as intended.
         var worst = 0f
-        for (i in 2 until mix.size) worst = maxOf(worst, abs(v[i] + m[i] - mix[i]))
+        for (i in EDGE until mix.size - EDGE) worst = maxOf(worst, abs(v[i] + m[i] - mix[i]))
         assertTrue("worst $worst", worst < 2e-3f)
     }
 
@@ -128,8 +131,10 @@ class MediaLogicTest {
             val m = music.samples()
             assertEquals(mix.size, m.size)
             var worst = 0f
-            for (i in 2 until mix.size) worst = maxOf(worst, abs(v[i] + m[i] - mix[i]))
+            for (i in EDGE until mix.size - EDGE) worst = maxOf(worst, abs(v[i] + m[i] - mix[i]))
             assertTrue("worst $worst", worst < 2e-3f)
+            // The edges fade instead of clicking: no division by a near-zero window weight.
+            for (i in 0 until EDGE) assertTrue("edge ${v[i]} ${m[mix.size - 1 - i]}", abs(v[i]) <= 4f && abs(m[mix.size - 1 - i]) <= 4f)
         }
     }
 
