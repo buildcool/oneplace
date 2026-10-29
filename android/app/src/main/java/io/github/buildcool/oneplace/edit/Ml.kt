@@ -91,7 +91,10 @@ object Ml {
         val tmp = File(dir(ctx), "runtime.tmp")
         val digest = MessageDigest.getInstance("SHA-256")
         try {
-            DigestOut(tmp.outputStream(), digest).use { out -> zip.extract(entry, out) { progress(it * RUNTIME_DOWNLOAD / entry.compressedSize) } }
+            val stream = tmp.outputStream()
+            // Android 14+ wants code loaded at runtime to be read-only: mark it so before writing (as documented).
+            tmp.setReadOnly()
+            DigestOut(stream, digest).use { out -> zip.extract(entry, out) { progress(it * RUNTIME_DOWNLOAD / entry.compressedSize) } }
             if (hex(digest.digest()) != want) throw IOException("The vocal remover engine did not match its checksum")
             runtime(ctx).parentFile?.mkdirs()
             if (!tmp.renameTo(runtime(ctx))) throw IOException("Could not save the vocal remover engine")
@@ -168,9 +171,12 @@ object Ml {
         if (loaded) return
         val lib = runtime(ctx)
         if (!lib.isFile) throw IOException("The vocal remover is not downloaded")
+        if (lib.canWrite()) lib.setReadOnly()
         try {
             System.load(lib.absolutePath)
         } catch (e: UnsatisfiedLinkError) {
+            throw IOException("This phone could not start the vocal remover: ${e.message}")
+        } catch (e: SecurityException) {
             throw IOException("This phone could not start the vocal remover: ${e.message}")
         }
         loaded = true
