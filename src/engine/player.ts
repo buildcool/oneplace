@@ -62,13 +62,19 @@ export type Action =
   | 'repeat'
   | 'sleep'
   | 'subs'
+  | 'scrubStart'
+  | 'scrub'
+  | 'scrubEnd'
   | 'stop';
 
 export type Orientation = 'landscape' | 'portrait' | 'auto';
 
 export interface Player {
   load(o: { items: PlayItem[]; index: number; position?: number; video: boolean }): Promise<void>;
-  /** seek/seekBy in seconds, speed as a factor, repeat 0 off / 1 all / 2 one, sleep in minutes (-1 after this song, 0 off). */
+  /**
+   * seek/seekBy in seconds, speed as a factor, repeat 0 off / 1 all / 2 one, sleep in minutes (-1 after this song, 0 off).
+   * scrubStart, scrub (seconds), scrubEnd (seconds): fast seeks while a finger drags, then one exact seek.
+   */
   control(action: Action, value?: number): Promise<void>;
   state(): Promise<PlayerState>;
   /** Show the video behind the page (which turns transparent), or hide it and keep only the sound. */
@@ -185,7 +191,11 @@ function mockPlayer(): Player {
         case 'toggle':
           return set({ playing: !s.playing, playWhenReady: !s.playing, position: at });
         case 'seek':
+        case 'scrub':
+        case 'scrubEnd':
           return set({ position: Math.max(0, Math.min(v, s.duration)) });
+        case 'scrubStart':
+          return;
         case 'seekBy':
           return set({ position: Math.max(0, Math.min(at + v, s.duration)) });
         case 'next':

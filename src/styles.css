@@ -2118,7 +2118,7 @@ button.row:active {
 
 .seek {
   position: relative;
-  height: 28px;
+  height: 36px;
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -2453,33 +2453,73 @@ html.video-open .mini {
   font-weight: 750;
 }
 
+/* Double-tap to skip: a soft glow on that side with moving arrows (like YouTube), not a box. */
 .vp-ripple {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 38%;
+  width: 40%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.12);
   pointer-events: none;
-  animation: ripple 0.65s ease-out forwards;
+  animation: ripple 0.7s ease-out forwards;
 }
 
 .vp-ripple.l {
   left: 0;
-  border-radius: 0 50% 50% 0 / 0 50% 50% 0;
+  background: radial-gradient(130% 75% at 0% 50%, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05) 62%, transparent 63%);
 }
 
 .vp-ripple.r {
   right: 0;
-  border-radius: 50% 0 0 50% / 50% 0 0 50%;
+  background: radial-gradient(130% 75% at 100% 50%, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05) 62%, transparent 63%);
 }
 
 .vp-ripple b {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.vp-arrows {
+  display: flex;
+  gap: 3px;
+}
+
+.vp-ripple.l .vp-arrows {
+  transform: scaleX(-1);
+}
+
+.vp-arrows i {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 10px solid #fff;
+  opacity: 0.3;
+  animation: arrow 0.7s ease-in-out infinite;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.vp-arrows i:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.vp-arrows i:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+@keyframes arrow {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
 }
 
 @keyframes ripple {
@@ -2494,45 +2534,135 @@ html.video-open .mini {
   }
 }
 
-.vp-hud {
+/* Brightness (left edge) and volume (right edge): a slim bar beside the finger, out of the picture's way. */
+.vp-level {
   position: absolute;
-  left: 50%;
-  top: 22%;
-  transform: translateX(-50%);
+  top: 50%;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.65);
+  gap: 8px;
+  width: 36px;
+  padding: 10px 0 8px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.96);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
 }
 
-.vp-hud.seek {
-  flex-direction: column;
-  gap: 2px;
+.vp-level.on {
+  opacity: 1;
+  transform: translateY(-50%);
 }
 
-.vp-hud.seek b {
-  font-size: 22px;
+.vp-level.l {
+  left: calc(var(--safe-area-inset-left, 0px) + 16px);
 }
 
-.vp-level {
+.vp-level.r {
+  right: calc(var(--safe-area-inset-right, 0px) + 16px);
+}
+
+.vp-level-track {
   position: relative;
-  width: 6px;
-  height: 64px;
+  width: 4px;
+  height: min(140px, 28vh);
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.25);
   overflow: hidden;
 }
 
-.vp-level i {
+.vp-level-track i {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
+  border-radius: 99px;
   background: #fff;
+}
+
+.vp-level-num {
+  font-size: 11px;
+  font-weight: 650;
+  opacity: 0.85;
+}
+
+/* Small notes at the top: seek time, 2× speed, fill/fit, locked. */
+.vp-pill {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--safe-top) + 64px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 86%;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: pill-in 0.18s var(--ease);
+}
+
+.vp-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+
+/* While the controls are hidden: a thin line shows how far the video is. */
+.vp-thin {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.vp-thin i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+
+/* Once, the first time: what the gestures do. */
+.vp-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 132px);
+  transform: translateX(-50%);
+  width: min(88%, 420px);
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: center;
+  animation: pill-in 0.3s var(--ease);
 }
 
 .vp-spin {
@@ -2617,40 +2747,53 @@ html.video-open .mini {
   font-weight: 650;
 }
 
-.vp-speeds {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.vp-speed-list {
+/* Speed: one row of chips above the seek bar; the video stays in view. */
+.vp-speedbar {
   display: flex;
-  flex-direction: column;
-  min-width: 220px;
-  max-height: 80%;
-  overflow-y: auto;
-  padding: 10px;
-  border-radius: 22px;
-  background: rgba(24, 24, 34, 0.96);
+  gap: 6px;
+  margin: 0 -4px 10px;
+  padding: 2px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  animation: pill-in-up 0.18s var(--ease);
 }
 
-.vp-speed-list b {
-  padding: 6px 12px 10px;
+.vp-speedbar::-webkit-scrollbar {
+  display: none;
 }
 
-.vp-speed-list button {
-  padding: 11px 14px;
-  border-radius: 12px;
-  text-align: left;
-  font-weight: 600;
+.vp-speedbar button {
+  flex: none;
+  min-width: 52px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
+  font-size: 13px;
+  font-weight: 650;
 }
 
-.vp-speed-list button[aria-pressed='true'] {
-  background: var(--brand);
-  color: var(--brand-ink);
+.vp-speedbar button[aria-checked='true'] {
+  background: #fff;
+  color: #111;
+}
+
+@keyframes pill-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.vp-time button {
+  color: inherit;
+  font: inherit;
+  padding: 4px 0 4px 12px;
+}
+
+.vp-tools button.on {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* In the small floating window only the picture shows. */

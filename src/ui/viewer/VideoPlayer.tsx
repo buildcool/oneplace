@@ -8,7 +8,7 @@ import { siteInfo } from '../../core/sites.ts';
 import { livePosition, player, usePlayer, type Orientation } from '../../engine/player.ts';
 import { useT } from '../../i18n.ts';
 import { useBack } from '../back.ts';
-import { Icon } from '../Icon.tsx';
+import { Icon, type IconName } from '../Icon.tsx';
 import { SeekBar, useTicker } from '../common.tsx';
 import { toPlayItem } from './play.ts';
 
@@ -31,6 +31,10 @@ type Side = 'l' | 'c' | 'r';
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const native = Capacitor.isNativePlatform();
 
+/** Phone edges where Android's own gestures start (back, system bars): no player gestures there. */
+const EDGE_X = 28;
+const EDGE_Y = 44;
+
 /** Landscape videos turn the phone sideways (like MX Player); Shorts and Reels stay upright. */
 export function orientOf(w?: number, h?: number): Orientation {
   if (!w || !h) return 'auto';
@@ -38,6 +42,37 @@ export function orientOf(w?: number, h?: number): Orientation {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? '1' : '0');
+  } catch {
+    // only a preference
+  }
+}
+
+/** Clear [value] after [ms]: short-lived pills and hints fade away by themselves. */
+function useLater(value: unknown, ms: number, clear: () => void) {
+  useEffect(() => {
+    if (!value) return;
+    const id = window.setTimeout(clear, ms);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+}
+
+function levelIcon(kind: 'bright' | 'vol', v: number): IconName {
+  if (kind === 'bright') return v < 0.34 ? 'sunDim' : 'sun';
+  return v <= 0.001 ? 'volumeOff' : v < 0.5 ? 'volumeLow' : 'volume';
+}
 
 export function VideoPlayer(p: Props) {
   const t = useT();
@@ -50,10 +85,17 @@ export function VideoPlayer(p: Props) {
   const [rot, setRot] = useState<Orientation>();
   const [speeds, setSpeeds] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
-  const [hud, setHud] = useState<{ kind: 'bright' | 'vol' | 'seek'; v: number; from?: number } | null>(null);
+  const [seekHud, setSeekHud] = useState<{ to: number; from: number } | null>(null);
+  // Brightness/volume: kept after the gesture so the bar can fade out instead of vanishing.
+  const [level, setLevel] = useState<{ kind: 'bright' | 'vol'; v: number } | null>(null);
+  const [levelOn, setLevelOn] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; icon?: IconName; key: number } | null>(null);
+  const [boost, setBoost] = useState(false);
   const [ripple, setRipple] = useState<{ side: Side; n: number; key: number } | null>(null);
   const [resumed, setResumed] = useState(0);
   const [pip, setPip] = useState(false);
+  const [remain, setRemain] = useState(() => readFlag('op.vpRemain'));
+  const [tip, setTip] = useState(() => !readFlag('op.vpTip'));
   const now = useTicker(ps.playing && !pip);
   const pos = scrub ?? livePosition(ps, now);
   const vw = ps.videoW || cur.w || 0;
@@ -78,6 +120,7 @@ export function VideoPlayer(p: Props) {
     return () => {
       off();
       root.classList.remove('video-open');
+      if (scrubbing.current) void player.control('scrubEnd', scrubAt.current);
       void player.video({ show: false });
       void player.screen({ immersive: false, keepOn: false, orientation: 'auto', brightness: -1 });
       void player.pipConfig({ auto: false, w: 16, h: 9 });
@@ -111,6 +154,12 @@ export function VideoPlayer(p: Props) {
     return () => void h.then((x) => x.remove());
   }, [fill, p.settings.leaveVideo]);
 
+  // Pausing or reaching the end brings the controls back (a tap can still hide them, to see the frame clean).
+  useEffect(() => {
+    if (!ps.playing && !scrubbing.current && !boost) setShown(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ps.playing, ps.ended]);
+
   // Controls hide by themselves while playing.
   useEffect(() => {
     if (!shown || scrub !== null || speeds || (!ps.playing && !locked)) return;
@@ -118,29 +167,55 @@ export function VideoPlayer(p: Props) {
     return () => window.clearTimeout(id);
   }, [shown, ps.playing, scrub, speeds, locked, poke]);
 
-  useEffect(() => {
-    if (!resumed) return;
-    const id = window.setTimeout(() => setResumed(0), 6000);
-    return () => window.clearTimeout(id);
-  }, [resumed]);
-
-  useEffect(() => {
-    if (!ripple) return;
-    const id = window.setTimeout(() => setRipple(null), 650);
-    return () => window.clearTimeout(id);
-  }, [ripple]);
+  useLater(resumed, 6000, () => setResumed(0));
+  useLater(ripple, 700, () => setRipple(null));
+  useLater(notice, 1300, () => setNotice(null));
+  useLater(tip, 7000, () => dismissTip());
 
   const touch = () => {
     setShown(true);
     setPoke((n) => n + 1);
   };
+  const say = (text: string, icon?: IconName) => setNotice({ text, icon, key: Date.now() });
+  const dismissTip = () => {
+    if (!tip) return;
+    setTip(false);
+    writeFlag('op.vpTip', true);
+  };
+
+  // ---------- scrubbing: the picture follows the finger, then one exact seek at the end ----------
+  const scrubbing = useRef(false);
+  const scrubAt = useRef(0);
+  const lastScrub = useRef(0);
+  const scrubTo = (sec: number) => {
+    scrubAt.current = sec;
+    if (!scrubbing.current) {
+      scrubbing.current = true;
+      void player.control('scrubStart');
+    }
+    const at = Date.now();
+    if (at - lastScrub.current > 90) {
+      lastScrub.current = at;
+      void player.control('scrub', sec);
+    }
+  };
+  const scrubDone = (sec: number) => {
+    if (scrubbing.current) {
+      scrubbing.current = false;
+      void player.control('scrubEnd', sec);
+    } else void player.control('seek', sec);
+  };
 
   // ---------- gestures ----------
   const bright = useRef<number | undefined>(undefined);
   const vol = useRef<number | undefined>(undefined);
+  const boostFrom = useRef(1);
   const pts = useRef(new Map<number, { x: number; y: number }>());
-  const g = useRef<{ x0: number; y0: number; mode?: 'seek' | 'bright' | 'vol' | 'pinch'; base: number; dist0?: number; moved: boolean; target?: number } | undefined>(undefined);
+  const g = useRef<
+    { x0: number; y0: number; mode?: 'seek' | 'bright' | 'vol' | 'pinch' | 'boost' | 'none'; base: number; dist0?: number; moved: boolean; target?: number; last?: number } | undefined
+  >(undefined);
   const lastSend = useRef(0);
+  const holdTimer = useRef<number | undefined>(undefined);
   const taps = useRef<{ t: number; side: Side } | undefined>(undefined);
   const burst = useRef<{ side: Side; t: number; n: number } | undefined>(undefined);
   const tapTimer = useRef<number | undefined>(undefined);
@@ -180,23 +255,45 @@ export function VideoPlayer(p: Props) {
     }, 280);
   };
 
+  const endBoost = () => {
+    if (!boost) return;
+    setBoost(false);
+    void player.control('speed', boostFrom.current);
+  };
+
   const down = (e: RPointerEvent<HTMLDivElement>) => {
     if (pip) return;
+    dismissTip();
     e.currentTarget.setPointerCapture(e.pointerId);
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    window.clearTimeout(holdTimer.current);
     if (pts.current.size === 2 && !locked) {
       const [a, b] = [...pts.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
       g.current = { x0: 0, y0: 0, mode: 'pinch', base: 0, dist0: Math.hypot(a.x - b.x, a.y - b.y), moved: true };
       return;
     }
-    if (pts.current.size === 1) g.current = { x0: e.clientX, y0: e.clientY, base: 0, moved: false };
+    if (pts.current.size !== 1) return;
+    g.current = { x0: e.clientX, y0: e.clientY, base: 0, moved: false };
+    // Press and hold: 2× speed while the finger stays down (like YouTube).
+    if (!locked && ps.playing) {
+      holdTimer.current = window.setTimeout(() => {
+        const s = g.current;
+        if (!s || s.moved || s.mode) return;
+        s.mode = 'boost';
+        boostFrom.current = ps.speed;
+        setBoost(true);
+        setShown(false);
+        navigator.vibrate?.(15);
+        void player.control('speed', 2);
+      }, 450);
+    }
   };
 
   const move = (e: RPointerEvent<HTMLDivElement>) => {
     if (!pts.current.has(e.pointerId)) return;
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const s = g.current;
-    if (!s || locked) return;
+    if (!s || locked || s.mode === 'boost' || s.mode === 'none') return;
     const r = e.currentTarget.getBoundingClientRect();
     if (s.mode === 'pinch') {
       if (pts.current.size < 2) return;
@@ -206,6 +303,7 @@ export function VideoPlayer(p: Props) {
       if (want !== undefined && want !== fill) {
         setFill(want);
         void player.video({ show: true, fill: want });
+        say(want ? t('act.fill') : t('act.fit'), want ? 'expand' : 'shrink');
       }
       return;
     }
@@ -214,23 +312,34 @@ export function VideoPlayer(p: Props) {
     if (!s.moved) {
       if (Math.hypot(dx, dy) < 16) return;
       s.moved = true;
+      window.clearTimeout(holdTimer.current);
+      const x0 = s.x0 - r.left;
+      const y0 = s.y0 - r.top;
       if (Math.abs(dx) > Math.abs(dy)) {
-        s.mode = ps.duration > 0 ? 'seek' : undefined;
+        // Not from the very sides: that is Android's back gesture.
+        s.mode = ps.duration > 0 && x0 > EDGE_X && x0 < r.width - EDGE_X ? 'seek' : 'none';
         s.base = livePosition(ps);
       } else {
-        s.mode = s.x0 - r.left < r.width / 2 ? 'bright' : 'vol';
+        // Not from the very top or bottom: that pulls Android's bars in.
+        s.mode = y0 < EDGE_Y || y0 > r.height - EDGE_Y ? 'none' : x0 < r.width / 2 ? 'bright' : 'vol';
         s.base = (s.mode === 'bright' ? bright.current : vol.current) ?? 0.5;
       }
+      if (s.mode === 'none') return;
     }
     if (s.mode === 'seek') {
       const span = Math.min(ps.duration, 180);
       const target = clamp(s.base + (dx / r.width) * span, 0, ps.duration);
       s.target = target;
       setScrub(target);
-      setHud({ kind: 'seek', v: target, from: s.base });
+      setSeekHud({ to: target, from: s.base });
+      scrubTo(target);
     } else if (s.mode === 'bright' || s.mode === 'vol') {
       const v = clamp(s.base - dy / (r.height * 0.7), 0, 1);
-      setHud({ kind: s.mode, v });
+      // A small tick when it reaches the top or the bottom.
+      if ((v === 0 || v === 1) && s.last !== v) navigator.vibrate?.(8);
+      s.last = v;
+      setLevel({ kind: s.mode, v });
+      setLevelOn(true);
       const at = Date.now();
       if (at - lastSend.current > 50) {
         lastSend.current = at;
@@ -247,21 +356,28 @@ export function VideoPlayer(p: Props) {
 
   const up = (e: RPointerEvent<HTMLDivElement>) => {
     pts.current.delete(e.pointerId);
+    window.clearTimeout(holdTimer.current);
     const s = g.current;
     if (!s || pts.current.size > 0) return;
     g.current = undefined;
-    if (s.mode === 'pinch') return;
+    if (s.mode === 'pinch' || s.mode === 'none') return;
+    if (s.mode === 'boost') return endBoost();
     if (s.mode === 'seek' && s.target !== undefined) {
-      void player.control('seek', s.target);
+      scrubDone(s.target);
       setScrub(null);
-    }
-    if (s.mode === 'bright' && bright.current !== undefined) void player.screen({ brightness: Math.max(0.02, bright.current) });
-    if (s.mode === 'vol' && vol.current !== undefined) void player.volume(vol.current);
-    if (s.mode) {
-      window.setTimeout(() => setHud(null), 500);
+      setSeekHud(null);
       return;
     }
-    if (!s.moved) tap(e.clientX - e.currentTarget.getBoundingClientRect().left, e.currentTarget.getBoundingClientRect().width);
+    if (s.mode === 'bright' || s.mode === 'vol') {
+      if (s.mode === 'bright' && bright.current !== undefined) void player.screen({ brightness: Math.max(0.02, bright.current) });
+      if (s.mode === 'vol' && vol.current !== undefined) void player.volume(vol.current);
+      window.setTimeout(() => setLevelOn(false), 600);
+      return;
+    }
+    if (!s.moved) {
+      const r = e.currentTarget.getBoundingClientRect();
+      tap(e.clientX - r.left, r.width);
+    }
   };
 
   // ---------- actions ----------
@@ -279,6 +395,7 @@ export function VideoPlayer(p: Props) {
     touch();
     setFill(!fill);
     void player.video({ show: true, fill: !fill });
+    say(!fill ? t('act.fill') : t('act.fit'), !fill ? 'expand' : 'shrink');
   };
   const goPip = async () => {
     if (!(await player.pip())) p.onToast(t('vp.pipOff'));
@@ -286,9 +403,14 @@ export function VideoPlayer(p: Props) {
 
   const hasPrev = ps.index > 0;
   const hasNext = ps.index < ps.count - 1;
-  const show = !pip && (shown || (!locked && (!ps.playing || scrub !== null)));
+  // Dragging the seek bar keeps the controls up; swiping over the picture shows only the pill, so the
+  // frames being scrubbed through are not dimmed.
+  const show = !pip && !boost && !seekHud && (shown || (!locked && scrub !== null));
   const res = resLabel(vw, vh);
-  const waiting = ps.buffering && ps.playWhenReady && !ps.error;
+  // While scrubbing the player holds still on purpose: no spinner for that.
+  const waiting = ps.buffering && ps.playWhenReady && !ps.error && scrub === null;
+  const pct = (v: number) => `${ps.duration > 0 ? Math.min(100, (v / ps.duration) * 100) : 0}%`;
+  const seekDelta = seekHud ? seekHud.to - seekHud.from : 0;
 
   return (
     <div className={`vp${show ? ' show' : ''}${pip ? ' pip' : ''}`} role="dialog" aria-label={cur.title}>
@@ -296,30 +418,44 @@ export function VideoPlayer(p: Props) {
 
       {ripple ? (
         <div key={ripple.key} className={`vp-ripple ${ripple.side}`} aria-hidden>
-          <Icon name={ripple.side === 'l' ? 'replay' : 'refresh'} size={26} />
+          <span className="vp-arrows">
+            <i />
+            <i />
+            <i />
+          </span>
           <b>{ripple.n * 10} s</b>
         </div>
       ) : null}
 
-      {hud ? (
-        <div className={`vp-hud ${hud.kind}`} aria-live="polite">
-          {hud.kind === 'seek' ? (
-            <>
-              <b>{duration(hud.v)}</b>
-              <span>
-                {hud.v >= (hud.from ?? 0) ? '+' : '−'}
-                {duration(Math.abs(hud.v - (hud.from ?? 0)))}
-              </span>
-            </>
-          ) : (
-            <>
-              <Icon name={hud.kind === 'bright' ? 'sun' : 'volume'} size={20} />
-              <span className="vp-level">
-                <i style={{ height: `${Math.round(hud.v * 100)}%` }} />
-              </span>
-              <b>{Math.round(hud.v * 100)}</b>
-            </>
-          )}
+      {level ? (
+        <div className={`vp-level ${level.kind === 'bright' ? 'l' : 'r'}${levelOn ? ' on' : ''}`} role="status" aria-label={`${t(level.kind === 'bright' ? 'vp.brightness' : 'vp.volume')} ${Math.round(level.v * 100)}%`}>
+          <Icon name={levelIcon(level.kind, level.v)} size={18} />
+          <span className="vp-level-track">
+            <i style={{ height: `${Math.round(level.v * 100)}%` }} />
+          </span>
+          <span className="vp-level-num">{Math.round(level.v * 100)}</span>
+        </div>
+      ) : null}
+
+      {seekHud ? (
+        <div className="vp-pill" role="status">
+          <b>
+            {seekDelta >= 0 ? '+' : '−'}
+            {duration(Math.abs(seekDelta))}
+          </b>
+          <span>
+            {duration(seekHud.to)} / {duration(ps.duration)}
+          </span>
+        </div>
+      ) : boost ? (
+        <div className="vp-pill" role="status">
+          <Icon name="fast" size={16} fill />
+          <b>{t('vp.boost')}</b>
+        </div>
+      ) : notice ? (
+        <div key={notice.key} className="vp-pill" role="status">
+          {notice.icon ? <Icon name={notice.icon} size={16} /> : null}
+          <span>{notice.text}</span>
         </div>
       ) : null}
 
@@ -339,7 +475,7 @@ export function VideoPlayer(p: Props) {
         </div>
       ) : null}
 
-      {resumed && show ? (
+      {resumed && show && !speeds ? (
         <div className="vp-resume">
           <span>{t('vp.resumed', { time: duration(resumed) })}</span>
           <button
@@ -352,6 +488,18 @@ export function VideoPlayer(p: Props) {
             {t('vp.startOver')}
           </button>
         </div>
+      ) : null}
+
+      {tip && !pip && !ps.error ? (
+        <button type="button" className="vp-tip" onClick={dismissTip}>
+          {t('vp.tip')}
+        </button>
+      ) : null}
+
+      {!show && !pip && ps.duration > 0 ? (
+        <span className="vp-thin" aria-hidden>
+          <i style={{ width: pct(pos) }} />
+        </span>
       ) : null}
 
       {locked ? (
@@ -400,9 +548,38 @@ export function VideoPlayer(p: Props) {
           </div>
 
           <footer className="vp-bottom">
+            {speeds ? (
+              <div className="vp-speedbar" role="radiogroup" aria-label={t('act.speed')}>
+                {SPEEDS.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="radio"
+                    aria-checked={Math.abs(ps.speed - v) < 0.01}
+                    onClick={() => {
+                      void player.control('speed', v);
+                      setSpeeds(false);
+                      touch();
+                    }}
+                  >
+                    {v === 1 ? t('common.normal') : `${v}×`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="vp-time">
               <span>{duration(pos)}</span>
-              <span>{duration(ps.duration)}</span>
+              <button
+                type="button"
+                aria-label={t('vp.timeLeft')}
+                onClick={() => {
+                  touch();
+                  setRemain(!remain);
+                  writeFlag('op.vpRemain', !remain);
+                }}
+              >
+                {remain && ps.duration > 0 ? `−${duration(Math.max(0, ps.duration - pos))}` : duration(ps.duration)}
+              </button>
             </div>
             <SeekBar
               pos={pos}
@@ -410,11 +587,18 @@ export function VideoPlayer(p: Props) {
               buffered={ps.buffered}
               label={t('act.seek')}
               onScrub={(s) => {
-                setScrub(s);
                 setPoke((n) => n + 1);
+                if (s === null) {
+                  setScrub(null);
+                  // Cancelled drag: settle where the finger was.
+                  if (scrubbing.current) scrubDone(scrubAt.current);
+                  return;
+                }
+                setScrub(s);
+                scrubTo(s);
               }}
               onSeek={(s) => {
-                void player.control('seek', s);
+                scrubDone(s);
                 touch();
               }}
             />
@@ -425,11 +609,13 @@ export function VideoPlayer(p: Props) {
                 onClick={() => {
                   setLocked(true);
                   setShown(false);
+                  setSpeeds(false);
+                  say(t('vp.locked'), 'lock');
                 }}
               >
                 <Icon name="lock" size={20} />
               </button>
-              <button type="button" aria-label={t('act.speed')} onClick={() => (touch(), setSpeeds(true))}>
+              <button type="button" aria-label={t('act.speed')} aria-expanded={speeds} className={speeds ? 'on' : ''} onClick={() => (touch(), setSpeeds(!speeds))}>
                 <span className="vp-speed">{`${ps.speed}×`}</span>
               </button>
               <button type="button" aria-label={fill ? t('act.fit') : t('act.fill')} aria-pressed={fill} onClick={fillToggle}>
@@ -450,28 +636,6 @@ export function VideoPlayer(p: Props) {
           </footer>
         </>
       )}
-
-      {speeds ? (
-        <div className="vp-speeds" role="dialog" aria-label={t('act.speed')} onClick={() => setSpeeds(false)}>
-          <div className="vp-speed-list" onClick={(e) => e.stopPropagation()}>
-            <b>{t('act.speed')}</b>
-            {SPEEDS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={Math.abs(ps.speed - v) < 0.01}
-                onClick={() => {
-                  void player.control('speed', v);
-                  setSpeeds(false);
-                  touch();
-                }}
-              >
-                {v === 1 ? `1× · ${t('common.normal')}` : `${v}×`}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1,5 +1,20 @@
 ## What's new
 
+- **Video player gestures feel calmer and quicker:**
+  - **Brightness and volume** now show as slim, see-through bars at the screen edge where your finger is (left for brightness, right for volume), not a box in the middle of the video. A small tick when you reach the top or the bottom.
+  - **Seeking shows the picture as you go.** When you drag the seek bar or swipe across the video, the video follows your finger, so you land exactly where you want. A small pill at the top shows how far you moved.
+  - **Press and hold** anywhere to watch at 2× speed; let go to return to normal.
+  - **Speed** is now a slim row of choices above the seek bar, so the video stays in view.
+  - **Double-tap to skip** shows a soft glow with moving arrows on that side.
+  - **Small notes** at the top confirm "Fill the screen", "Show whole picture" and "Controls locked".
+  - When the controls are hidden, a thin line at the bottom shows how far you are.
+  - Tap the total time to see the time left instead.
+  - While paused, a tap now hides the controls too, so you can look at the frame.
+  - Swipes that start at the very edges are left to Android (back gesture, system bars), so they don't jump the brightness or volume.
+  - The first time you open a video, a short tip explains the gestures.
+
+### From v1.0.15
+
 - **Watch, listen and view everything inside OnePlace**, no other app needed:
   - **Video player:** plays MP4, MKV and WebM, including 4K.
     - Double-tap the left or right side to skip 10 s; swipe left/right to seek.

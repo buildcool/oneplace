@@ -72,6 +72,10 @@ const PATHS = {
   checkCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 12.5l2.8 2.8L16 9.5',
   selectAll: 'M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM21 7v12a2 2 0 0 1-2 2H7M6.5 10l2.5 2.5L14 7.5',
   openWith: 'M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5',
+  sunDim: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 3.5v.5M12 20v.5M3.5 12H4M20 12h.5M6 6l.3.3M17.7 17.7l.3.3M6 18l.3-.3M17.7 6.3 18 6',
+  volumeLow: 'M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7',
+  volumeOff: 'M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6',
+  fast: 'M3 6l8 6-8 6zM12 6l8 6-8 6z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

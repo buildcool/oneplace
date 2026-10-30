@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -12,6 +13,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -122,6 +124,7 @@ object Playback {
             .build()
     }
 
+    @OptIn(UnstableApi::class)
     fun control(ctx: Context, action: String, value: Double): Unit = withPlayer(ctx) { p ->
         when (action) {
             "play" -> {
@@ -155,12 +158,21 @@ object Playback {
                 }
                 tick()
             }
+            // Dragging the seek bar or swiping: the picture follows the finger (Media3 scrubbing mode keeps
+            // the many seeks cheap and holds playback), then one exact seek where the finger stopped.
+            "scrubStart" -> p.isScrubbingModeEnabled = true
+            "scrub" -> p.seekTo((value * 1000).toLong().coerceAtLeast(0))
+            "scrubEnd" -> {
+                p.isScrubbingModeEnabled = false
+                p.seekTo((value * 1000).toLong().coerceAtLeast(0))
+            }
             "subs" -> {
                 subsOn = value != 0.0
                 p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !subsOn).build()
             }
             "stop" -> {
                 sleepAt = 0
+                p.isScrubbingModeEnabled = false
                 p.stop()
                 p.clearMediaItems()
             }
