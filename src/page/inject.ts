@@ -280,7 +280,8 @@ interface Bridge {
       if (!u || Date.now() - tapped > 1500) return;
       tapped = 0;
       play(u, { title: tidy(document.title.replace(/ - YouTube( Music)?$/, '')) });
-      if (music) history.back();
+      // Back to where the tap was, so closing the player shows that page again.
+      history.back();
     });
     // A watch page opened straight from a link.
     const first = watchUrl(location.href);

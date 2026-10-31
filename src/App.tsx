@@ -485,7 +485,7 @@ export default function App() {
 
   // ---------- links played without downloading (YouTube and YT Music in OnePlace's player) ----------
 
-  useEffect(() => setSponsorBlock(settings.sponsorBlock), [settings.sponsorBlock]);
+  useEffect(() => setSponsorBlock(settings.sponsorBlock && !remote.disabled.includes('sponsorBlock')), [settings.sponsorBlock, remote]);
   useEffect(
     () =>
       player.onSkipped((e) => {
