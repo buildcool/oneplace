@@ -69,3 +69,8 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
   - Ad blocking works on the requests pages make; ads drawn by a site's own code (some of YouTube's) are hidden with site rules as well as possible.
   - Streams locked with DRM are shown as protected and never downloaded.
   - Private tabs need a recent Android System WebView; on older ones the option is hidden.
+- **YouTube and YT Music in OnePlace's player:**
+  - A video starts after OnePlace has read it (about 2–5 s on mobile data); the next song of a queue is read while the current one plays.
+  - Age-restricted and members-only videos need a YouTube login (More → Site logins); without it they say so.
+  - Shorts play in the page itself; YouTube's ads there are blocked as well as possible, not guaranteed.
+  - If YouTube changes something, yt-dlp updates itself; until then a video may not play (Download still tries).

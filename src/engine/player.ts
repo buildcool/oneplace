@@ -15,6 +15,26 @@ export interface PlayItem {
   /** Local picture for the notification and lock screen. */
   art?: string;
   subs?: { uri: string; name: string }[];
+  /** Played from a link (uri is the page): the phone finds the stream when it gets to this item. */
+  stream?: boolean;
+  /** Sound only (songs): less data. */
+  audioOnly?: boolean;
+  site?: string;
+  /** SponsorBlock categories to skip (YouTube). */
+  skip?: string[];
+}
+
+/** Stream quality limits by network (highest picture height, 0: none). */
+export interface StreamQuality {
+  wifi: number;
+  mobile: number;
+}
+
+/** A part SponsorBlock skipped. */
+export interface Skipped {
+  category: string;
+  from: number;
+  to: number;
 }
 
 export type Repeat = 'off' | 'all' | 'one';
@@ -44,6 +64,12 @@ export interface PlayerState {
   error?: string;
   /** Sleep timer: when it stops (ms since 1970), -1 after this song, 0 off. */
   sleepAt: number;
+  /** A live stream (no end). */
+  live?: boolean;
+  /** Picture heights the current stream offers (its quality menu). */
+  heights?: number[];
+  /** Quality picked in the player (-1: automatic for the network). */
+  quality?: number;
   /** When this state was read, to move the time along between updates. */
   at: number;
 }
@@ -65,12 +91,15 @@ export type Action =
   | 'scrubStart'
   | 'scrub'
   | 'scrubEnd'
+  | 'quality'
   | 'stop';
 
 export type Orientation = 'landscape' | 'portrait' | 'auto';
 
 export interface Player {
-  load(o: { items: PlayItem[]; index: number; position?: number; video: boolean }): Promise<void>;
+  load(o: { items: PlayItem[]; index: number; position?: number; video: boolean; quality?: StreamQuality }): Promise<void>;
+  /** More items at the end of the queue (a radio's next songs, "Up next"). */
+  append(items: PlayItem[]): Promise<void>;
   /**
    * seek/seekBy in seconds, speed as a factor, repeat 0 off / 1 all / 2 one, sleep in minutes (-1 after this song, 0 off).
    * scrubStart, scrub (seconds), scrubEnd (seconds): fast seeks while a finger drags, then one exact seek.
@@ -90,6 +119,7 @@ export interface Player {
   pipActive(): Promise<boolean>;
   onState(cb: (s: PlayerState) => void): () => void;
   onPip(cb: (active: boolean) => void): () => void;
+  onSkipped(cb: (s: Skipped) => void): () => void;
 }
 
 export const IDLE: PlayerState = {
@@ -124,7 +154,8 @@ export function livePosition(s: PlayerState, now = Date.now()): number {
 // ---------- native ----------
 
 interface PlayerPlugin {
-  load(o: { items: PlayItem[]; index: number; position: number; video: boolean }): Promise<void>;
+  load(o: { items: PlayItem[]; index: number; position: number; video: boolean; quality?: StreamQuality }): Promise<void>;
+  append(o: { items: PlayItem[] }): Promise<void>;
   control(o: { action: Action; value?: number }): Promise<void>;
   state(): Promise<Omit<PlayerState, 'at'>>;
   video(o: { show: boolean; fill?: boolean }): Promise<void>;
@@ -135,6 +166,7 @@ interface PlayerPlugin {
   pipActive(): Promise<{ value: boolean }>;
   addListener(event: 'state', cb: (s: Omit<PlayerState, 'at'>) => void): Promise<PluginListenerHandle>;
   addListener(event: 'pip', cb: (d: { active: boolean }) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'skipped', cb: (d: Skipped) => void): Promise<PluginListenerHandle>;
 }
 
 const P = registerPlugin<PlayerPlugin>('Player');
@@ -142,6 +174,7 @@ const stamp = (s: Omit<PlayerState, 'at'>): PlayerState => ({ ...IDLE, ...s, at:
 
 const nativePlayer: Player = {
   load: (o) => P.load({ ...o, position: o.position ?? 0 }),
+  append: (items) => P.append({ items }),
   control: (action, value) => P.control(value === undefined ? { action } : { action, value }),
   state: async () => stamp(await P.state()),
   video: (o) => P.video(o),
@@ -152,6 +185,7 @@ const nativePlayer: Player = {
   pipActive: async () => (await P.pipActive()).value,
   onState: (cb) => listen(() => P.addListener('state', (s) => cb(stamp(s)))),
   onPip: (cb) => listen(() => P.addListener('pip', (d) => cb(d.active))),
+  onSkipped: (cb) => listen(() => P.addListener('skipped', cb)),
 };
 
 // ---------- browser stand-in (`npm run dev`): a pretend clock, no sound ----------
@@ -178,7 +212,11 @@ function mockPlayer(): Player {
       clock ??= setInterval(tick, 500);
       items = o.items;
       const it = items[o.index];
-      set({ ...IDLE, id: it?.id, index: o.index, count: items.length, idle: false, playing: true, playWhenReady: true, position: o.position ?? 0, duration: 213, video: o.video, videoW: o.video ? 1920 : 0, videoH: o.video ? 1080 : 0 });
+      set({ ...IDLE, id: it?.id, index: o.index, count: items.length, idle: false, playing: true, playWhenReady: true, position: o.position ?? 0, duration: 213, video: o.video, videoW: o.video ? 1920 : 0, videoH: o.video ? 1080 : 0, heights: it?.stream ? [1080, 720, 480, 360] : [], quality: -1 });
+    },
+    async append(more) {
+      items = [...items, ...more];
+      set({ count: items.length });
     },
     async control(action, v = 0) {
       const at = livePosition(s);
@@ -214,6 +252,8 @@ function mockPlayer(): Player {
           return set({ sleepAt: v > 0 ? Date.now() + v * 60_000 : v });
         case 'subs':
           return set({ subs: !!v });
+        case 'quality':
+          return set({ quality: v });
         case 'stop':
           items = [];
           return set({ ...IDLE });
@@ -231,6 +271,7 @@ function mockPlayer(): Player {
       return () => subs.delete(cb);
     },
     onPip: () => () => {},
+    onSkipped: () => () => {},
   };
 }
 
@@ -273,7 +314,7 @@ export function usePlayer(): PlayerState {
 }
 
 const coarse = (s: PlayerState) =>
-  [s.id, s.playing, s.playWhenReady, s.buffering, s.ended, s.idle, s.index, s.count, s.videoW, s.videoH, s.video, s.subs, s.speed, s.shuffle, s.repeat, s.sleepAt, s.error].join('|');
+  [s.id, s.playing, s.playWhenReady, s.buffering, s.ended, s.idle, s.index, s.count, s.videoW, s.videoH, s.video, s.subs, s.speed, s.shuffle, s.repeat, s.sleepAt, s.error, s.live, s.quality, s.heights?.join(',')].join('|');
 
 /** Only what changes now and then (track, play/pause…), so the rest of the app does not redraw with the clock. */
 export function usePlayerCoarse(): PlayerState {

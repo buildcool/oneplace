@@ -26,7 +26,7 @@ import { isMusic, quickRequest, type Settings } from '../../core/settings.ts';
 import { SITES } from '../../core/sites.ts';
 import type { Job, JobRequest } from '../../core/types.ts';
 import { engine } from '../../engine/index.ts';
-import { browser, type ContextTarget, type PageDownload, type RawFound } from '../../engine/browser.ts';
+import { browser, type ContextTarget, type PageDownload, type PlayRequest, type RawFound } from '../../engine/browser.ts';
 import { useT } from '../../i18n.ts';
 import { useBack } from '../back.ts';
 import { Icon, type IconName } from '../Icon.tsx';
@@ -61,6 +61,9 @@ interface Props {
   miniShown: boolean;
   /** Remote config switched the ad blocker off (it misbehaved somewhere). */
   adblockOff?: boolean;
+  /** YouTube and YT Music videos and songs tapped in a page play in OnePlace's player. */
+  takeover?: boolean;
+  onPlay?: (r: PlayRequest) => void;
   request?: BrowseRequest;
   onRequestDone: () => void;
   /** A page fills the screen (the app's bottom bar hides). */
@@ -198,9 +201,12 @@ export function Browse(p: Props) {
 
   useEffect(() => {
     void browser
-      .configure({ adblock: p.adblockOff ? 'off' : s.adblock, thirdPartyCookies: s.thirdPartyCookies, darkPages: s.darkPages, appDark, hideBars: s.hideBars, takeover: false, rules })
+      .configure({ adblock: p.adblockOff ? 'off' : s.adblock, thirdPartyCookies: s.thirdPartyCookies, darkPages: s.darkPages, appDark, hideBars: s.hideBars, takeover: !!p.takeover, rules })
       .catch(() => {});
-  }, [s.adblock, p.adblockOff, s.thirdPartyCookies, s.darkPages, appDark, s.hideBars, rules]);
+  }, [s.adblock, p.adblockOff, s.thirdPartyCookies, s.darkPages, appDark, s.hideBars, p.takeover, rules]);
+
+  const onPlay = useRef(p.onPlay);
+  onPlay.current = p.onPlay;
 
   // Remember tabs (not private ones), history, bookmarks and the start page's sites.
   useEffect(() => {
@@ -263,6 +269,8 @@ export function Browse(p: Props) {
       browser.on('fullscreen', (d) => setFullscreen(d.on)),
       browser.on('keyboard', (d) => setKeyboard(d.open)),
       browser.on('find', (d) => setFind((f) => (f ? { ...f, index: d.index, count: d.count } : f))),
+      // A YouTube video or song tapped in a page: OnePlace's player takes it (no ads).
+      browser.on('play', (d) => onPlay.current?.(d)),
     ];
     return () => offs.forEach((off) => off());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -721,6 +729,14 @@ export function Browse(p: Props) {
           items={items}
           downloaded={downloaded}
           onPage={(audio) => pageFound && addQuick(pageFound.url, audio)}
+          onPlay={
+            pageFound && onPlay.current
+              ? () => {
+                  setLayer(undefined);
+                  onPlay.current?.({ id: tab.id, url: pageFound.url, music: pageFound.kind === 'audio', title: pageFound.title, thumb: pageFound.thumb ?? tab.image });
+                }
+              : undefined
+          }
           onLink={openLink}
           onQuick={(f) => addQuick(f.url)}
           onMedia={addMedia}

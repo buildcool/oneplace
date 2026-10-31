@@ -146,6 +146,37 @@ describe('app shell renders', () => {
     expect(html).toContain('Vocal remover');
     expect(html).toContain('Search engine');
     expect(html).toContain('Block ads and trackers');
+    expect(html).toContain('Play in OnePlace (no ads)');
+    expect(html).toContain('Skip sponsors (SponsorBlock)');
+  });
+
+  it('a YouTube video and song played from links', async () => {
+    const { VideoPlayer } = await import('../src/ui/viewer/VideoPlayer.tsx');
+    const { NowPlaying } = await import('../src/ui/viewer/NowPlaying.tsx');
+    const { ItemMenu } = await import('../src/ui/viewer/ItemSheets.tsx');
+    const { streamItem } = await import('../src/core/stream.ts');
+    const v = streamItem({ url: 'https://m.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Never Gonna Give You Up', artist: 'Rick Astley' });
+    const song = streamItem({ url: 'https://music.youtube.com/watch?v=kJQP7kiw5Fk', title: 'Despacito', audio: true });
+    expect(render(VideoPlayer, { items: [v], index: 0, resume: true, settings: DEFAULTS, pipOk: true, onClose: noop, onMenu: noop, onOpenWith: noop, onToast: noop })).toContain('Never Gonna Give You Up');
+    expect(render(NowPlaying, { cur: song, queue: [song], onClose: noop, onMenu: noop, onSwap: noop, onWatch: noop, onToast: noop })).toContain('Despacito');
+    const menu = render(ItemMenu, {
+      item: v,
+      onClose: noop,
+      onOpen: noop,
+      onOpenWith: noop,
+      onShare: noop,
+      onKaraoke: noop,
+      onInfo: noop,
+      onSwap: noop,
+      onSource: noop,
+      onCopyLink: noop,
+      onDelete: noop,
+      onDownloadLink: noop,
+      onShareLink: noop,
+    });
+    expect(menu).toContain('Open the page');
+    expect(menu).toContain('Share link');
+    expect(menu).not.toContain('Delete');
   });
 
   it('App', async () => {

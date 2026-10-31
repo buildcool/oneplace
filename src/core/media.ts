@@ -31,6 +31,8 @@ export interface MediaItem {
   /** Vocal remover copy: the item it was made from, and which part it keeps. */
   editOf?: string;
   stem?: 'music' | 'vocals';
+  /** Played from a link without downloading (YouTube in OnePlace's player): file.uri is the link. */
+  stream?: boolean;
 }
 
 export const kindOf = (mime: string): MediaKind | undefined =>

@@ -195,6 +195,33 @@ object Engines {
         }
     }
 
+    /**
+     * Read a link to play it rather than save it. YouTube goes first through the quick client without
+     * cookies (fast even with a login), then the usual way with the site's login. The answer is kept,
+     * so "Download" right after starts at once.
+     */
+    suspend fun streamInfo(ctx: Context, url: String, site: String): JSONObject {
+        ensureReady(ctx)
+        InfoCache.get(ctx, url, 0)?.let { f -> runCatching { JSONObject(f.readText()) }.getOrNull()?.let { return it } }
+        val id = "stream-${counter.incrementAndGet()}"
+        val base = listOf("-J", "--no-playlist", "--no-warnings", "--cache-dir", cacheDir(ctx)) + Config.siteArgs(ctx, site)
+        if ((site == "youtube" || site == "ytmusic") && Config.fastYouTube(ctx) && Config.siteArgs(ctx, site).isEmpty()) {
+            val r = Runner.ytdlp(ctx, id, base + listOf("--extractor-args", "youtube:player_client=visionos", url), keepOut = true)
+            if (r.code == -9) throw CancellationException("canceled")
+            if (hasFormats(r.out)) return keep(ctx, url, r.out)
+        }
+        val r = Runner.ytdlp(ctx, id, base + cookieArgs(ctx, site) + url, keepOut = true)
+        if (r.code == -9) throw CancellationException("canceled")
+        if (r.out.indexOf('{') < 0) throw java.io.IOException(r.err.lines().lastOrNull { it.contains("ERROR") }?.substringAfter("ERROR:")?.trim() ?: "exit code ${r.code}")
+        return keep(ctx, url, r.out)
+    }
+
+    private fun keep(ctx: Context, url: String, out: String): JSONObject {
+        val json = out.substring(out.indexOf('{')).trim()
+        InfoCache.put(ctx, url, json)
+        return JSONObject(json)
+    }
+
     fun cancelInfo() {
         infoRuns.toList().forEach { Runner.kill(it) }
     }

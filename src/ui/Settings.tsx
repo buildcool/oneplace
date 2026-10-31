@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ENGINES, type SearchEngine } from '../core/browser.ts';
 import { bytes } from '../core/format.ts';
-import type { Settings as S, VideoQuality } from '../core/settings.ts';
+import type { Settings as S, StreamCap, VideoQuality } from '../core/settings.ts';
 import { SITES } from '../core/sites.ts';
 import type { SiteId } from '../core/types.ts';
 import { RELEASES_PAGE } from '../core/update.ts';
@@ -13,6 +13,8 @@ import { Row, SectionTitle, Seg, Sheet, SiteAvatar, SwitchRow } from './common.t
 import { openExternal, reportUrl } from './report.ts';
 
 export type Page = 'sites' | 'about' | 'test';
+
+const STREAM_CAPS: StreamCap[] = [0, 1080, 720, 480, 360];
 
 const LOGIN_SITES: SiteId[] = ['instagram', 'facebook', 'x', 'tiktok', 'reddit', 'pinterest', 'threads', 'youtube'];
 
@@ -177,6 +179,21 @@ export function Settings(p: Props) {
           <SwitchRow icon="moon" title={t('set.darkPages')} on={s.darkPages} onChange={(darkPages) => p.update({ darkPages })} />
           <SwitchRow icon="shield" title={t('set.thirdParty')} sub={t('set.thirdPartySub')} on={!s.thirdPartyCookies} onChange={(v) => p.update({ thirdPartyCookies: !v })} />
           <Row icon="trash" title={t('set.clearData')} onClick={() => setClearing({ history: true, cookies: false, cache: true })} />
+        </div>
+
+        <SectionTitle>{t('set.youtube')}</SectionTitle>
+        <div className="card group">
+          <SwitchRow icon="play" title={t('set.ytInApp')} sub={t('set.ytInAppSub')} on={s.ytInApp} onChange={(ytInApp) => p.update({ ytInApp })} />
+          <SwitchRow icon="fast" title={t('set.sponsor')} sub={t('set.sponsorSub')} on={s.sponsorBlock} onChange={(sponsorBlock) => p.update({ sponsorBlock })} />
+          <SwitchRow icon="queue" title={t('set.autoplay')} on={s.autoplayNext} onChange={(autoplayNext) => p.update({ autoplayNext })} />
+          <div className="row stack">
+            <span className="title">{t('set.mobileQuality')}</span>
+            <Seg value={s.mobileQuality} options={STREAM_CAPS.map((id) => ({ id, label: id ? `${id}p` : t('yt.auto') }))} onChange={(mobileQuality) => p.update({ mobileQuality })} />
+          </div>
+          <div className="row stack">
+            <span className="title">{t('set.wifiQuality')}</span>
+            <Seg value={s.wifiQuality} options={STREAM_CAPS.map((id) => ({ id, label: id ? `${id}p` : t('yt.auto') }))} onChange={(wifiQuality) => p.update({ wifiQuality })} />
+          </div>
         </div>
 
         <SectionTitle>{t('set.player')}</SectionTitle>

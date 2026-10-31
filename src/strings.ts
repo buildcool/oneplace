@@ -66,6 +66,7 @@ const S = {
   'sheet.remember': ['Remember my choice', 'Meri choice yaad rakho', 'मेरी पसंद याद रखें'],
   'sheet.added': ['Added to downloads', 'Downloads mein add hua', 'डाउनलोड में जोड़ा'],
   'sheet.findOnPage': ['Find it on the page', 'Page par dhoondo', 'पेज पर ढूँढें'],
+  'sheet.play': ['Play without downloading', 'Bina download kiye chalao', 'बिना डाउनलोड किए चलाएँ'],
   'sheet.live': ['Live now: records until it ends', 'Abhi live: khatam hone tak record', 'अभी लाइव: खत्म होने तक रिकॉर्ड'],
   'sheet.nothing': ['Nothing to download here', 'Yahan download karne ko kuch nahi', 'यहाँ डाउनलोड करने को कुछ नहीं'],
   'sheet.loginHint': [
@@ -538,7 +539,7 @@ const S = {
   // In-app browser
   'tab.browse': ['Browse', 'Browse', 'ब्राउज़'],
   'br.search': ['Search or type a site', 'Search karo ya site likho', 'खोजें या साइट लिखें'],
-  'br.ytSub': ['Ads blocked', 'Ads blocked', 'विज्ञापन ब्लॉक'],
+  'br.ytSub': ['No ads · plays in OnePlace', 'No ads · OnePlace mein chalega', 'बिना विज्ञापन · OnePlace में चलेगा'],
   'br.sites': ['Sites', 'Sites', 'साइट्स'],
   'br.allSites': ['All sites', 'Saari sites', 'सभी साइट्स'],
   'br.tabs': ['Your tabs', 'Aapke tabs', 'आपके टैब'],
@@ -676,6 +677,35 @@ const S = {
   'cd.cache': ['Saved pictures and files', 'Save ki hui photos aur files', 'सेव की हुई फ़ोटो और फ़ाइलें'],
   'cd.go': ['Clear', 'Saaf karo', 'साफ़ करें'],
   'cd.done': ['Browsing data cleared', 'Browsing data saaf ho gaya', 'ब्राउज़िंग डेटा साफ़ हुआ'],
+
+  // YouTube and YT Music in OnePlace's player
+  'yt.quality': ['Quality', 'Quality', 'क्वालिटी'],
+  'yt.auto': ['Auto', 'Auto', 'ऑटो'],
+  'yt.live': ['LIVE', 'LIVE', 'लाइव'],
+  'yt.skipSponsor': ['Skipped sponsor', 'Sponsor skip kiya', 'स्पॉन्सर छोड़ा'],
+  'yt.skipPromo': ['Skipped self-promotion', 'Self-promotion skip kiya', 'सेल्फ़-प्रमोशन छोड़ा'],
+  'yt.skipReminder': ['Skipped “subscribe” reminder', '“Subscribe” wala hissa skip kiya', '“सब्सक्राइब” वाला हिस्सा छोड़ा'],
+  'yt.skipNonMusic': ['Skipped the part without music', 'Bina music wala hissa skip kiya', 'बिना संगीत वाला हिस्सा छोड़ा'],
+  'yt.skipPart': ['Skipped a part', 'Ek hissa skip kiya', 'एक हिस्सा छोड़ा'],
+  'yt.undo': ['Undo', 'Wapas', 'वापस'],
+  'yt.cantPlay': ['Couldn’t play this here. Try Download, or open it on the page.', 'Yahan nahi chala. Download karo, ya page par kholo.', 'यहाँ नहीं चला। डाउनलोड करें, या पेज पर खोलें।'],
+  'yt.openPage': ['Open the page', 'Page kholo', 'पेज खोलें'],
+  'set.youtube': ['YouTube and YT Music', 'YouTube aur YT Music', 'YouTube और YT Music'],
+  'set.ytInApp': ['Play in OnePlace (no ads)', 'OnePlace mein chalao (bina ads)', 'OnePlace में चलाएँ (बिना विज्ञापन)'],
+  'set.ytInAppSub': [
+    'Videos and songs you tap in the browser play in OnePlace’s player, with background play and lock-screen controls',
+    'Browser mein tap kiye video aur gaane OnePlace ke player mein chalte hain, background aur lock screen ke saath',
+    'ब्राउज़र में टैप किए वीडियो और गाने OnePlace के प्लेयर में चलते हैं, बैकग्राउंड और लॉक स्क्रीन के साथ',
+  ],
+  'set.sponsor': ['Skip sponsors (SponsorBlock)', 'Sponsors skip karo (SponsorBlock)', 'स्पॉन्सर छोड़ें (SponsorBlock)'],
+  'set.sponsorSub': [
+    'Skips paid sponsor reads and “subscribe” reminders that viewers marked',
+    'Viewers ke mark kiye sponsor aur “subscribe” wale hisse skip hote hain',
+    'दर्शकों के चिह्नित किए स्पॉन्सर और “सब्सक्राइब” वाले हिस्से छोड़े जाते हैं',
+  ],
+  'set.autoplay': ['Play similar videos and songs next', 'Agla milta-julta video ya gaana chalao', 'अगला मिलता-जुलता वीडियो या गाना चलाएँ'],
+  'set.mobileQuality': ['Video quality on mobile data', 'Mobile data par video quality', 'मोबाइल डेटा पर वीडियो क्वालिटी'],
+  'set.wifiQuality': ['Video quality on Wi-Fi', 'Wi-Fi par video quality', 'वाई-फ़ाई पर वीडियो क्वालिटी'],
 
   'common.cancel': ['Cancel', 'Cancel', 'रद्द करें'],
   'common.close': ['Close', 'Band karo', 'बंद करें'],

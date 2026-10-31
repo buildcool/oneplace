@@ -17,6 +17,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import io.github.buildcool.oneplace.stream.Streams
 import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
@@ -36,6 +37,7 @@ class PlayerPlugin : Plugin() {
         instance = WeakReference(this)
         Pip.activity = WeakReference(activity)
         Playback.listener = { s -> notifyListeners("state", s) }
+        Playback.onSkipped = { e -> notifyListeners("skipped", e) }
         Playback.onPlaying = { Pip.update() }
         ContextCompat.registerReceiver(context, pipReceiver, IntentFilter(Pip.ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
@@ -45,6 +47,7 @@ class PlayerPlugin : Plugin() {
     override fun handleOnDestroy() {
         runCatching { context.unregisterReceiver(pipReceiver) }
         Playback.listener = null
+        Playback.onSkipped = null
         Playback.onPlaying = null
         VideoLayer.hide()
         Playback.disconnect()
@@ -57,6 +60,11 @@ class PlayerPlugin : Plugin() {
         val index = call.getInt("index", 0) ?: 0
         val position = ((call.getDouble("position", 0.0) ?: 0.0) * 1000).toLong()
         val video = call.getBoolean("video", false) ?: false
+        // Stream quality limits per network (0: none).
+        call.getObject("quality")?.let {
+            Streams.capWifi = it.optInt("wifi", 0)
+            Streams.capMobile = it.optInt("mobile", 720)
+        }
         bridge.executeOnMainThread {
             try {
                 Playback.load(context, items, index, position, video)
@@ -64,6 +72,16 @@ class PlayerPlugin : Plugin() {
             } catch (e: Exception) {
                 call.reject(e.message ?: "Could not play")
             }
+        }
+    }
+
+    /** More items at the end of the queue (a radio's next songs, "Up next"). */
+    @PluginMethod
+    fun append(call: PluginCall) {
+        val items = call.getArray("items") ?: return call.reject("items missing")
+        bridge.executeOnMainThread {
+            Playback.append(context, items)
+            call.resolve()
         }
     }
 

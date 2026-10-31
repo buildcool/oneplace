@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { explain } from './core/errors.ts';
 import { detect, findUrls } from './core/links.ts';
 import { loadPositions, mediaItems, resumeAt, savePosition, type MediaItem, type Positions } from './core/media.ts';
+import { entriesToItems, queueUrl, skipLabel, streamItem, ytId } from './core/stream.ts';
 import { EMPTY_CONFIG, loadRemoteConfig, type RemoteConfig } from './core/remoteConfig.ts';
 import { buildRequest, canAutoStart, editRequest, loadSettings, quickRequest, quickTemplates, saveSettings, videoSpec, type Settings } from './core/settings.ts';
 import { SITES } from './core/sites.ts';
@@ -33,7 +34,7 @@ import { UpdateSheet } from './ui/UpdateSheet.tsx';
 import { ImageViewer } from './ui/viewer/ImageViewer.tsx';
 import { InfoSheet, ItemMenu, KaraokeSheet } from './ui/viewer/ItemSheets.tsx';
 import { MiniPlayer, NowPlaying } from './ui/viewer/NowPlaying.tsx';
-import { counterpart, toPlayItem } from './ui/viewer/play.ts';
+import { counterpart, setSponsorBlock, toPlayItem } from './ui/viewer/play.ts';
 import { VideoPlayer } from './ui/viewer/VideoPlayer.tsx';
 
 type Tab = 'home' | 'browse' | 'downloads' | 'library' | 'more';
@@ -114,6 +115,17 @@ export default function App() {
   // In-app browser: a page fills the screen (no bottom bar), and links other screens ask it to open.
   const [browsePage, setBrowsePage] = useState(false);
   const [browseReq, setBrowseReq] = useState<BrowseRequest>();
+  // Links playing without being downloaded (YouTube, YT Music…), by key.
+  const [streams, setStreams] = useState<Map<string, MediaItem>>(() => new Map());
+  const streamsRef = useRef(streams);
+  streamsRef.current = streams;
+  const addStreams = useCallback((list: MediaItem[]) => {
+    setStreams((m) => {
+      const next = new Map(m);
+      list.forEach((it) => next.set(it.key, it));
+      return next;
+    });
+  }, []);
 
   const say = useCallback((text: string, action?: { label: string; run: () => void }) => setToast({ text, action }), []);
   useEffect(() => {
@@ -360,7 +372,7 @@ export default function App() {
 
   const items = useMemo(() => mediaItems(jobs), [jobs]);
   const byKey = useMemo(() => new Map(items.map((it) => [it.key, it])), [items]);
-  const current = ps.id ? byKey.get(ps.id) : undefined;
+  const current = ps.id ? (byKey.get(ps.id) ?? streams.get(ps.id)) : undefined;
   const tr = (key: Key, vars?: Vars) => translate(settingsRef.current.lang, key, vars);
 
   // Remember where videos and long recordings were left (every 5 s while playing, and on pause).
@@ -370,7 +382,7 @@ export default function App() {
     let last = 0;
     let wasPlaying = false;
     return watchPlayer((s) => {
-      const it = s.id ? byKeyRef.current.get(s.id) : undefined;
+      const it = s.id ? (byKeyRef.current.get(s.id) ?? streamsRef.current.get(s.id)) : undefined;
       const stopped = wasPlaying && !s.playing;
       wasPlaying = s.playing;
       if (!it || it.kind === 'image' || !s.duration || s.duration < (it.kind === 'video' ? 60 : 600)) return;
@@ -389,9 +401,12 @@ export default function App() {
     if (list.length) setQueue(list);
   }, [queue.length, ps.idle, items.length, byKey]);
 
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
   const setPlayQueue = (list: MediaItem[]) => {
+    queueRef.current = list;
     setQueue(list);
-    writeLocal(QUEUE_KEY, list.map((it) => it.key).join('\n'));
+    writeLocal(QUEUE_KEY, list.filter((it) => !it.stream).map((it) => it.key).join('\n'));
   };
 
   const playAudio = (list: MediaItem[], index: number, shuffle = false) => {
@@ -467,6 +482,74 @@ export default function App() {
     if (viewer?.kind === 'video') setViewer({ ...viewer, items: list, index, resume: true });
     void player.load({ items: list.map(toPlayItem), index, position: livePosition(playerNow()), video: viewer?.kind === 'video' });
   };
+
+  // ---------- links played without downloading (YouTube and YT Music in OnePlace's player) ----------
+
+  useEffect(() => setSponsorBlock(settings.sponsorBlock), [settings.sponsorBlock]);
+  useEffect(
+    () =>
+      player.onSkipped((e) => {
+        const tr2 = (key: Key) => translate(settingsRef.current.lang, key);
+        say(tr2(skipLabel(e.category)), { label: tr2('yt.undo'), run: () => void player.control('seek', e.from) });
+      }),
+    [say],
+  );
+
+  // A stream that can't be played says so once, with a way out.
+  const failedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!ps.error || !current?.stream || failedRef.current === current.key) return;
+    failedRef.current = current.key;
+    const it = current;
+    say(tr('yt.cantPlay'), { label: tr('sheet.download'), run: () => openLink(it.url) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ps.error, current?.key]);
+
+  /** Play a link (a YouTube video or a song) without downloading it; its playlist or similar ones follow. */
+  const playLink = useCallback(
+    async (o: { url: string; title?: string; artist?: string; thumb?: string; music: boolean }) => {
+      const st = settingsRef.current;
+      const it = streamItem({ url: o.url, title: o.title, artist: o.artist, thumb: o.thumb, audio: o.music });
+      addStreams([it]);
+      const quality = { wifi: st.wifiQuality, mobile: st.mobileQuality };
+      const saved = loadPositions()[it.file.uri];
+      const at = st.resume ? resumeAt(saved?.[0], saved?.[1]) : 0;
+      try {
+        if (o.music) {
+          setPlayQueue([it]);
+          setViewer(undefined);
+          await player.load({ items: [toPlayItem(it)], index: 0, position: at, video: false, quality });
+          setNpOpen(true);
+        } else {
+          await player.load({ items: [toPlayItem(it)], index: 0, position: at, video: true, quality });
+          setNpOpen(false);
+          setViewer({ kind: 'video', items: [it], index: 0, resume: true });
+        }
+      } catch {
+        say(tr('yt.cantPlay'));
+        return;
+      }
+      // The rest of its playlist or album, else (autoplay) a mix of similar ones — fetched once the first
+      // item has had a moment to start, so the two don't slow each other down.
+      const list = queueUrl(o.url, st.autoplayNext, o.music);
+      if (!list) return;
+      window.setTimeout(() => {
+        engine
+          .info({ url: list, engine: 'ytdlp', args: ['-J', '--flat-playlist', '-I', ':50', '--no-warnings'], site: 'youtube' })
+          .then((r) => {
+            const more = entriesToItems(JSON.parse(r.json), o.music, ytId(o.url));
+            if (!more.length || playerNow().id !== it.key && !queueRef.current.some((x) => x.key === playerNow().id)) return;
+            addStreams(more);
+            void player.append(more.map(toPlayItem));
+            if (o.music) setPlayQueue([...queueRef.current, ...more]);
+            else setViewer((v) => (v?.kind === 'video' && v.items[0]?.key === it.key ? { ...v, items: [...v.items, ...more] } : v));
+          })
+          .catch(() => {});
+      }, 3500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addStreams, say],
+  );
 
   const refs = (list: MediaItem[]) => list.map((it) => ({ id: it.jobId, uri: it.file.uri }));
 
@@ -699,6 +782,8 @@ export default function App() {
           toast={toastInBar ? toast : undefined}
           miniShown={showMini}
           adblockOff={remote.disabled.includes('browserAdblock')}
+          takeover={settings.ytInApp && !remote.disabled.includes('ytTakeover')}
+          onPlay={(r) => void playLink({ url: r.url, title: r.title, artist: r.artist, thumb: r.thumb, music: r.music })}
           request={browseReq}
           onRequestDone={() => setBrowseReq(undefined)}
           onPageMode={setBrowsePage}
@@ -760,6 +845,10 @@ export default function App() {
           onFindOnPage={(url) => {
             setSheetInput(undefined);
             openInBrowser(url, true);
+          }}
+          onPlay={(o) => {
+            setSheetInput(undefined);
+            void playLink(o);
           }}
         />
       ) : null}
@@ -842,6 +931,11 @@ export default function App() {
           onSwap={swap}
           onSource={(it) => openInBrowser(it.url)}
           onCopyLink={(it) => void copyLink(it.url)}
+          onDownloadLink={(it) => {
+            setItemMenu(undefined);
+            openLink(it.url);
+          }}
+          onShareLink={(it) => void browser.shareText(it.url).catch(() => copyLink(it.url))}
           onDelete={(it) => void deleteItems([it])}
         />
       ) : null}

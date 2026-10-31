@@ -7,6 +7,7 @@ import type { AudioFormat, DownloadSpec, EditSpec, EngineId, Job, JobRequest, Jo
 
 export type Lang = 'en' | 'hinglish' | 'hi';
 export type VideoQuality = 'best' | 2160 | 1440 | 1080 | 720 | 480 | 360;
+export type StreamCap = 0 | 1080 | 720 | 480 | 360;
 
 export interface Settings {
   lang: Lang;
@@ -53,6 +54,15 @@ export interface Settings {
   /** Pages follow the app's dark theme (sites' own dark mode, else WebView darkens them). */
   darkPages: boolean;
   thirdPartyCookies: boolean;
+  // YouTube and YT Music
+  /** Videos and songs tapped in the browser play in OnePlace's player (no ads). */
+  ytInApp: boolean;
+  sponsorBlock: boolean;
+  /** After a video or song, play similar ones (YouTube's mix / YT Music's radio). */
+  autoplayNext: boolean;
+  /** Highest picture height for streams on mobile data / Wi-Fi (0: automatic). */
+  mobileQuality: StreamCap;
+  wifiQuality: StreamCap;
   lastVideoKey?: string;
   lastAudioKey?: string;
   skippedBuild?: number;
@@ -91,6 +101,11 @@ export const DEFAULTS: Settings = {
   adblock: 'standard',
   darkPages: true,
   thirdPartyCookies: false,
+  ytInApp: true,
+  sponsorBlock: true,
+  autoplayNext: true,
+  mobileQuality: 720,
+  wifiQuality: 0,
   onboarded: false,
 };
 

@@ -69,6 +69,7 @@ const LICENCES = [
   ['Spleeter by Deezer (voice model)', 'MIT'],
   ['sherpa-onnx (model conversion, method)', 'Apache-2.0'],
   ['HaGeZi DNS blocklists (browser ad blocking)', 'GPL-3.0'],
+  ['SponsorBlock data (sponsor.ajay.app)', 'CC BY-NC-SA 4.0'],
   ['AndroidX WebKit', 'Apache-2.0'],
   ['Capacitor, React', 'MIT'],
 ];

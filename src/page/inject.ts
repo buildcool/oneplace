@@ -234,6 +234,72 @@ interface Bridge {
   document.addEventListener('fullscreenchange', fullscreen, true);
   document.addEventListener('webkitfullscreenchange', fullscreen, true);
 
+  // ---------- YouTube and YT Music play in OnePlace's player (no ads, background play) ----------
+  const navHooks: (() => void)[] = [];
+  if (cfg.takeover && top && /(^|\.)youtube\.com$/.test(host)) takeover();
+
+  function takeover() {
+    const music = host === 'music.youtube.com';
+    let tapped = 0;
+    window.addEventListener('pointerdown', () => (tapped = Date.now()), true);
+    const watchUrl = (href: string | null | undefined): URL | undefined => {
+      if (!href) return undefined;
+      try {
+        const u = new URL(href, location.href);
+        return /(^|\.)youtube\.com$/.test(u.hostname) && u.pathname === '/watch' && u.searchParams.get('v') ? u : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const cardOf = (a: Element) => {
+      const box =
+        a.closest('ytm-media-item, ytm-video-with-context-renderer, ytm-compact-video-renderer, ytm-playlist-video-renderer, ytmusic-responsive-list-item-renderer, ytmusic-two-row-item-renderer') ?? a;
+      const title = tidy(a.getAttribute('aria-label') ?? a.getAttribute('title')) ?? tidy(box.querySelector('h3, h4, .media-item-headline, .title, yt-formatted-string')?.textContent);
+      const img = box.querySelector('img');
+      const thumb = img ? img.currentSrc || img.src : undefined;
+      return { title, thumb: fetchable(thumb) ? thumb : undefined };
+    };
+    const play = (u: URL, extra: Record<string, unknown> = {}) => send({ t: 'play', url: u.href, ...extra });
+    // A tap on a video or a song: OnePlace plays it; the page stays where it is.
+    window.addEventListener(
+      'click',
+      (e) => {
+        const a = (e.target as Element | null)?.closest?.('a[href]');
+        const u = watchUrl(a?.getAttribute('href'));
+        if (!a || !u) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        play(u, cardOf(a));
+      },
+      true,
+    );
+    // Buttons without a link (Play all, Shuffle, YT Music's play buttons) open a watch page right after a
+    // tap. Watch pages the site opens by itself (autoplay, skipping after an error) are left alone.
+    navHooks.push(() => {
+      const u = watchUrl(location.href);
+      if (!u || Date.now() - tapped > 1500) return;
+      tapped = 0;
+      play(u, { title: tidy(document.title.replace(/ - YouTube( Music)?$/, '')) });
+      if (music) history.back();
+    });
+    // A watch page opened straight from a link.
+    const first = watchUrl(location.href);
+    if (first) play(first);
+    // The page's own player never plays; the app also stops its video requests, so nothing is loaded.
+    const realPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      if (music || location.pathname === '/watch') {
+        try {
+          this.pause();
+        } catch {
+          // not playing anyway
+        }
+        return Promise.resolve();
+      }
+      return realPlay.call(this);
+    };
+  }
+
   // ---------- when to look ----------
   let timer: number | undefined;
   let last = 0;
@@ -270,6 +336,7 @@ interface Bridge {
 
   // Sites that change page without loading one (YouTube, Instagram, X…).
   const navigated = () => {
+    navHooks.forEach((f) => f());
     viewKey = '';
     window.setTimeout(sendMeta, 700);
     window.setTimeout(sendMeta, 2200);

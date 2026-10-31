@@ -1,5 +1,17 @@
 ## What's new
 
+- **YouTube and YouTube Music without ads**, inside OnePlace:
+  - Open YouTube or YouTube Music in **Browse** and tap any video or song: it plays in **OnePlace's own player**. No ad is ever loaded, because the page's player never runs.
+  - **Videos** get everything the player has: background play, picture-in-picture, gestures, speed, lock-screen controls, and **quality** (Auto, or 1080p/720p/480p… with the button at the top). On mobile data videos stay at 720p unless you change it in More → YouTube and YT Music.
+  - **Songs** play sound only (less data) in the music player, with the album, playlist or a **radio of similar songs** queued after them, and keep playing with the screen off.
+  - **Up next:** when a video or song ends, similar ones follow (switch it off in settings).
+  - **Skips sponsor reads** and "subscribe" reminders that viewers marked (SponsorBlock), with Undo. Only a 4-letter code of the video's id is sent, never the video itself.
+  - Shorts stay in the page (swipe through them as usual), with ads blocked as well as possible.
+- **"Play without downloading"** in the download sheet: any shared video or song link plays right away.
+- In the browser's ⬇ panel, ▶ plays the page's video or song.
+
+### From v1.0.17
+
 - **A browser inside OnePlace** (new **Browse** tab):
   - Open YouTube, YouTube Music, Instagram, Facebook, X and every other site OnePlace supports, or search the web, without leaving the app.
   - **Download what you see:** when a page has something to save, the ⬇ button in the bar lights up (and says "Download reel" for a moment). Tap it for:

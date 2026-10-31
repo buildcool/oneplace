@@ -16,6 +16,8 @@ interface Props {
   downloaded: Set<string>;
   /** This page: [audio] = MP3. */
   onPage: (audio: boolean) => void;
+  /** Play this page's video or song in OnePlace's player, without downloading. */
+  onPlay?: () => void;
   /** The full download sheet for a supported link (qualities, photos, playlists…). */
   onLink: (url: string) => void;
   /** One tap: a supported link with your usual quality. */
@@ -165,6 +167,11 @@ export function FinderSheet(p: Props) {
             </span>
           </div>
           <div className="fd-page-btns">
+            {p.onPlay && page.kind !== 'image' ? (
+              <button type="button" className="btn tonal fd-play" aria-label={t('sheet.play')} onClick={p.onPlay}>
+                <Icon name="play" size={18} fill />
+              </button>
+            ) : null}
             {page.site && isMusic({ site: page.site, kind: page.linkKind ?? 'unknown' }) ? null : (
               <button type="button" className="btn" onClick={() => p.onPage(false)}>
                 <Icon name={page.linkKind === 'post' ? 'image' : 'video'} size={18} /> {page.linkKind === 'post' ? t('fd.photos') : t('fd.video')}

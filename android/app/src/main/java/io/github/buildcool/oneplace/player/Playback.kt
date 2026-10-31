@@ -9,6 +9,11 @@ import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.VideoSize
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackParameters
@@ -19,6 +24,9 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.getcapacitor.JSObject
 import com.google.common.util.concurrent.ListenableFuture
+import io.github.buildcool.oneplace.engine.InfoCache
+import io.github.buildcool.oneplace.stream.StreamSource
+import io.github.buildcool.oneplace.stream.Streams
 import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,6 +60,20 @@ object Playback {
 
     /** Sleep timer: when to stop (ms since 1970), -1 at the end of this song, 0 off. */
     private var sleepAt = 0L
+
+    /** SponsorBlock: told when a part was skipped ({category, from, to}). */
+    @Volatile
+    var onSkipped: ((JSObject) -> Unit)? = null
+    private var app: Context? = null
+    private var mediaFactory: DefaultMediaSourceFactory? = null
+
+    /** Items played from links: what they were loaded with, to look a link up again when it expires. */
+    private val specs = HashMap<String, JSONObject>()
+    private val retried = HashMap<String, Long>()
+    private val skipped = HashSet<String>()
+
+    /** Highest picture height picked in the player (-1: automatic for the network). */
+    private var manualCap = -1
 
     fun current(): ExoPlayer? = attached?.takeIf { it === PlayerService.current }
 
@@ -90,14 +112,67 @@ object Playback {
         attached = p
     }
 
+    @OptIn(UnstableApi::class)
     fun load(ctx: Context, items: JSONArray, index: Int, positionMs: Long, video: Boolean): Unit = withPlayer(ctx) { p ->
-        val list = (0 until items.length()).map { item(items.getJSONObject(it)) }
+        val list = sources(ctx, items)
         if (list.isEmpty()) return@withPlayer
         sleepAt = 0
+        manualCap = -1
+        skipped.clear()
         setVideo(p, video)
-        p.setMediaItems(list, index.coerceIn(0, list.size - 1), positionMs.coerceAtLeast(0))
+        applyQuality(p)
+        p.setMediaSources(list, index.coerceIn(0, list.size - 1), positionMs.coerceAtLeast(0))
         p.prepare()
         p.play()
+    }
+
+    /** More items at the end of the queue (the next songs of a radio, "Up next"). */
+    @OptIn(UnstableApi::class)
+    fun append(ctx: Context, items: JSONArray): Unit = withPlayer(ctx) { p ->
+        val list = sources(ctx, items)
+        if (list.isNotEmpty()) p.addMediaSources(list)
+        emit()
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun sources(ctx: Context, items: JSONArray): List<MediaSource> {
+        val a = ctx.applicationContext
+        app = a
+        val factory = mediaFactory ?: DefaultMediaSourceFactory(a).also { mediaFactory = it }
+        return (0 until items.length()).map { i ->
+            val o = items.getJSONObject(i)
+            if (o.optBoolean("stream")) streamSource(a, o) else factory.createMediaSource(item(o))
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun streamSource(ctx: Context, o: JSONObject): MediaSource {
+        specs[o.getString("id")] = o
+        return StreamSource(item(o)) { Streams.resolve(ctx, o) }
+    }
+
+    /** Quality limit for streams: the one picked in the player, else the network's (Wi-Fi / mobile data). */
+    private fun applyQuality(p: ExoPlayer) {
+        val cap = if (manualCap >= 0) manualCap else app?.let { Streams.cap(it) } ?: 0
+        val size = p.videoSize
+        val b = p.trackSelectionParameters.buildUpon()
+        when {
+            cap <= 0 -> b.clearVideoSizeConstraints()
+            // Upright videos (Shorts) are limited by their width, like "720p" means for them.
+            size.width in 1 until size.height -> b.setMaxVideoSize(cap, Int.MAX_VALUE)
+            else -> b.setMaxVideoSize(Int.MAX_VALUE, cap)
+        }
+        p.trackSelectionParameters = b.build()
+    }
+
+    /** Heights of the qualities the current stream has (for the player's quality menu). */
+    private fun heights(p: ExoPlayer): JSONArray {
+        val out = sortedSetOf<Int>(compareByDescending { it })
+        for (g in p.currentTracks.groups) {
+            if (g.type != C.TRACK_TYPE_VIDEO) continue
+            for (i in 0 until g.length) g.getTrackFormat(i).height.takeIf { it > 0 }?.let { h -> out += minOf(h, g.getTrackFormat(i).width.takeIf { it > 0 } ?: h) }
+        }
+        return JSONArray(out.toList())
     }
 
     private fun item(o: JSONObject): MediaItem {
@@ -166,6 +241,10 @@ object Playback {
                 p.isScrubbingModeEnabled = false
                 p.seekTo((value * 1000).toLong().coerceAtLeast(0))
             }
+            "quality" -> {
+                manualCap = value.toInt()
+                applyQuality(p)
+            }
             "subs" -> {
                 subsOn = value != 0.0
                 p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !subsOn).build()
@@ -216,6 +295,9 @@ object Playback {
             .put("video", videoShown)
             .put("subs", subsOn)
             .put("sleepAt", sleepAt)
+            .put("live", p.isCurrentMediaItemLive)
+            .put("heights", heights(p))
+            .put("quality", manualCap)
         p.currentMediaItem?.mediaId?.let { o.put("id", it) }
         p.playerError?.let { o.put("error", it.errorCodeName + (it.message?.let { m -> ": $m" } ?: "")) }
         return o
@@ -235,6 +317,34 @@ object Playback {
             onPlaying?.invoke(isPlaying)
         }
 
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            current()?.let { if (manualCap > 0 || (app?.let { a -> Streams.cap(a) } ?: 0) > 0) applyQuality(it) }
+        }
+
+        /** A link that expired (403 after hours on pause): look it up again and go on at the same second. */
+        @OptIn(UnstableApi::class)
+        override fun onPlayerError(error: PlaybackException) {
+            val p = current() ?: return
+            val ctx = app ?: return
+            val id = p.currentMediaItem?.mediaId ?: return
+            val spec = specs[id] ?: return
+            var cause: Throwable? = error
+            while (cause != null && cause !is HttpDataSource.InvalidResponseCodeException) cause = cause.cause
+            val code = (cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode ?: return
+            if (code != 403 && code != 410) return
+            val now = System.currentTimeMillis()
+            if (now - (retried[id] ?: 0L) < 60_000) return
+            retried[id] = now
+            InfoCache.drop(ctx, spec.getString("uri"))
+            val i = p.currentMediaItemIndex
+            val at = p.currentPosition
+            p.removeMediaItem(i)
+            p.addMediaSource(i, streamSource(ctx, spec))
+            p.seekTo(i, at)
+            p.prepare()
+            p.play()
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             // Sleep timer "after this song".
             if (sleepAt == -1L && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
@@ -252,9 +362,21 @@ object Playback {
                 sleepAt = 0
                 p.pause()
             }
+            skipSponsors(p)
             emit()
             if (p.isPlaying) main.postDelayed(this, 250)
         }
+    }
+
+    /** Jump over a part SponsorBlock marked (once per play, so going back to it lets it play). */
+    private fun skipSponsors(p: ExoPlayer) {
+        val id = p.currentMediaItem?.mediaId ?: return
+        val segs = Streams.skips[id] ?: return
+        val pos = p.currentPosition / 1000.0
+        val s = segs.firstOrNull { pos >= it.start && pos < it.end - 0.4 } ?: return
+        if (!skipped.add("$id@${s.start}")) return
+        p.seekTo((s.end * 1000).toLong())
+        onSkipped?.invoke(JSObject().put("category", s.category).put("from", s.start).put("to", s.end))
     }
 
     private fun tick() {

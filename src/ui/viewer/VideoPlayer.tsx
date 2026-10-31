@@ -84,6 +84,8 @@ export function VideoPlayer(p: Props) {
   const [fill, setFill] = useState(false);
   const [rot, setRot] = useState<Orientation>();
   const [speeds, setSpeeds] = useState(false);
+  /** Streams: the row of qualities is open. */
+  const [qualities, setQualities] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
   const [seekHud, setSeekHud] = useState<{ to: number; from: number } | null>(null);
   // Brightness/volume: kept after the gesture so the bar can fade out instead of vanishing.
@@ -523,8 +525,23 @@ export function VideoPlayer(p: Props) {
             </button>
             <div className="vp-title">
               <b>{cur.title}</b>
-              <span>{[siteInfo(cur.site).name, res, ps.count > 1 ? `${ps.index + 1}/${ps.count}` : ''].filter(Boolean).join(' · ')}</span>
+              <span>{[ps.live ? t('yt.live') : '', siteInfo(cur.site).name, res, ps.count > 1 ? `${ps.index + 1}/${ps.count}` : ''].filter(Boolean).join(' · ')}</span>
             </div>
+            {cur.stream && (ps.heights?.length ?? 0) > 1 ? (
+              <button
+                type="button"
+                className={`iconbtn light vp-q${qualities ? ' on' : ''}`}
+                aria-label={t('yt.quality')}
+                aria-expanded={qualities}
+                onClick={() => {
+                  touch();
+                  setSpeeds(false);
+                  setQualities(!qualities);
+                }}
+              >
+                {(ps.quality ?? -1) > 0 ? qualityText(ps.quality!) : t('yt.auto')}
+              </button>
+            ) : null}
             {cur.subs.length ? (
               <button type="button" className={`iconbtn light${ps.subs ? ' on' : ''}`} aria-pressed={ps.subs} aria-label={t('act.subs')} onClick={() => void player.control('subs', ps.subs ? 0 : 1)}>
                 <Icon name="cc" />
@@ -548,6 +565,25 @@ export function VideoPlayer(p: Props) {
           </div>
 
           <footer className="vp-bottom">
+            {qualities && ps.heights?.length ? (
+              <div className="vp-speedbar" role="radiogroup" aria-label={t('yt.quality')}>
+                {[0, ...ps.heights].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    role="radio"
+                    aria-checked={h === 0 ? (ps.quality ?? -1) <= 0 : ps.quality === h}
+                    onClick={() => {
+                      void player.control('quality', h);
+                      setQualities(false);
+                      touch();
+                    }}
+                  >
+                    {h ? qualityText(h) : t('yt.auto')}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {speeds ? (
               <div className="vp-speedbar" role="radiogroup" aria-label={t('act.speed')}>
                 {SPEEDS.map((v) => (
@@ -615,7 +651,7 @@ export function VideoPlayer(p: Props) {
               >
                 <Icon name="lock" size={20} />
               </button>
-              <button type="button" aria-label={t('act.speed')} aria-expanded={speeds} className={speeds ? 'on' : ''} onClick={() => (touch(), setSpeeds(!speeds))}>
+              <button type="button" aria-label={t('act.speed')} aria-expanded={speeds} className={speeds ? 'on' : ''} onClick={() => (touch(), setQualities(false), setSpeeds(!speeds))}>
                 <span className="vp-speed">{`${ps.speed}×`}</span>
               </button>
               <button type="button" aria-label={fill ? t('act.fit') : t('act.fill')} aria-pressed={fill} onClick={fillToggle}>
@@ -638,4 +674,9 @@ export function VideoPlayer(p: Props) {
       )}
     </div>
   );
+}
+
+/** 2160 → "4K", 720 → "720p". */
+function qualityText(h: number): string {
+  return h >= 2160 ? '4K' : h >= 1440 ? '1440p' : `${h}p`;
 }

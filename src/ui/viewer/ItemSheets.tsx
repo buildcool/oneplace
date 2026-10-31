@@ -24,6 +24,9 @@ interface MenuProps {
   onSource: (it: MediaItem) => void;
   onCopyLink: (it: MediaItem) => void;
   onDelete: (it: MediaItem) => void;
+  /** Played from a link: download it, share its link. */
+  onDownloadLink?: (it: MediaItem) => void;
+  onShareLink?: (it: MediaItem) => void;
 }
 
 /** What you can do with one video, song or photo. */
@@ -58,7 +61,14 @@ export function ItemMenu(p: MenuProps) {
           </div>
         </div>
       </div>
-      {confirm ? (
+      {it.stream ? (
+        <div className="card group" style={{ marginBottom: 12 }}>
+          {p.onDownloadLink ? row('download', t('sheet.download'), () => p.onDownloadLink!(it)) : null}
+          {p.onShareLink ? row('share', t('cx.shareLink'), () => p.onShareLink!(it)) : null}
+          {row('copy', t('act.copyLink'), () => p.onCopyLink(it))}
+          {row('globe', t('yt.openPage'), () => p.onSource(it))}
+        </div>
+      ) : confirm ? (
         <div className="card group" style={{ marginBottom: 12 }}>
           <div className="row">
             <span className="grow">

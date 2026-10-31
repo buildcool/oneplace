@@ -37,6 +37,8 @@ interface Props {
   onError: (text: string) => void;
   /** Open the link's page in the browser with its content finder (when the engines can't read it). */
   onFindOnPage?: (url: string) => void;
+  /** Play the video or song now, without downloading it. */
+  onPlay?: (o: { url: string; title?: string; artist?: string; thumb?: string; music: boolean }) => void;
 }
 
 const VAGUE = new Set(['unknown', 'novideo', 'unsupported']);
@@ -48,7 +50,7 @@ export function DownloadSheet(props: Props) {
   return <SingleSheet {...props} url={urls[0]} />;
 }
 
-function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded, onLogin, onError, onFindOnPage }: Props & { url?: string }) {
+function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded, onLogin, onError, onFindOnPage, onPlay }: Props & { url?: string }) {
   const t = useT();
   const [phase, setPhase] = useState<'resolving' | 'reading' | 'ready' | 'error'>('reading');
   const [step, setStep] = useState<Key>('sheet.reading');
@@ -365,6 +367,17 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
               <div className="by small">{KIND_LABEL[data.link.kind]}{isPlaylist ? ` · ${t('sheet.items', { n: media!.playlist!.count })}` : ''}</div>
             </div>
           </div>
+
+          {onPlay && media && !isPlaylist && !gallery && media.duration !== 0 ? (
+            <button
+              type="button"
+              className="btn tonal block"
+              style={{ margin: '4px 0 10px' }}
+              onClick={() => onPlay({ url: data.link.url, title: media.title, artist: media.author, thumb: media.thumb, music: isMusic(data.link) })}
+            >
+              <Icon name="play" size={18} fill /> {t('sheet.play')}
+            </button>
+          ) : null}
 
           {needsLogin(data.link) && !sessions.includes(data.link.site) ? (
             <div className="banner warn">

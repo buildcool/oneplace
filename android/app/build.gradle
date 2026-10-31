@@ -107,6 +107,8 @@ dependencies {
     implementation "androidx.media3:media3-exoplayer:$media3"
     implementation "androidx.media3:media3-session:$media3"
     implementation "androidx.media3:media3-ui:$media3"
+    // Streams from links (YouTube's HLS playlist with every quality).
+    implementation "androidx.media3:media3-exoplayer-hls:$media3"
     // Vocal remover (Spleeter on the phone).
     implementation "com.microsoft.onnxruntime:onnxruntime-android:$onnxRuntime"
     ortAar "com.microsoft.onnxruntime:onnxruntime-android:$onnxRuntime@aar"
