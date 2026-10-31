@@ -79,6 +79,30 @@ object Cookies {
         cm.flush()
     }
 
+    /**
+     * The browser's cookies for some addresses as a cookies.txt for one download (a file found on a page
+     * may need the page's login). Each host keeps its own cookies. Null when there are none.
+     */
+    fun forUrls(urls: List<String>, out: File, cookieOf: (String) -> String?): File? {
+        val expiry = System.currentTimeMillis() / 1000 + 24 * 3600
+        val seen = HashSet<String>()
+        val lines = ArrayList<String>()
+        for (u in urls) {
+            val host = runCatching { java.net.URI(u).host }.getOrNull() ?: continue
+            val raw = cookieOf(u) ?: continue
+            for (part in raw.split(';')) {
+                val i = part.indexOf('=')
+                if (i <= 0) continue
+                val name = part.substring(0, i).trim()
+                if (!seen.add("$host\t$name")) continue
+                lines += line(".$host", name, part.substring(i + 1).trim(), expiry)
+            }
+        }
+        if (lines.isEmpty()) return null
+        out.writeText(render(lines))
+        return out
+    }
+
     /** "www.instagram.com" → "instagram.com". */
     fun baseDomain(host: String): String = host.split('.').takeLast(2).joinToString(".")
 

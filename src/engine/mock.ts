@@ -160,6 +160,7 @@ export const mockEngine: Engine = {
   updateEngines: async () => ({ ...STATUS, changed: false }),
   login: async () => ({ saved: false }),
   logout: async () => {},
+  checkLogin: async () => false,
   sessions: async () => [],
   async downloadUpdate() {
     alert('Downloads and installs the update in the phone app');

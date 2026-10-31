@@ -13,6 +13,7 @@ Download **videos, music, photos and thumbnails** from YouTube, YouTube Music, I
   - a photo viewer
   - a Library that works like a gallery
   - "Open with another app" is always one tap away
+- **Built-in browser with a download finder**: browse any supported site and save the video, reel, song or photo you're looking at; it also finds streams on other sites (m3u8/DASH, never DRM). Ad and tracker blocking ([HaGeZi](https://github.com/hagezi/dns-blocklists) lists), tabs, private tabs, history and bookmarks.
 - **Remove vocals (karaoke)** on the phone with [Spleeter](https://github.com/deezer/spleeter) (via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)'s ONNX export and [ONNX Runtime](https://onnxruntime.ai)). It downloads once, on first use.
 - English, Hinglish and हिंदी.
 

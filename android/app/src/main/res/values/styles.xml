@@ -23,6 +23,10 @@
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 
+    <!-- Browser pages: light or dark (sites' own dark mode and WebView's darkening follow this). -->
+    <style name="OnePlace.WebLight" parent="Theme.AppCompat.Light.NoActionBar" />
+    <style name="OnePlace.WebDark" parent="Theme.AppCompat.NoActionBar" />
+
     <!-- 1-tap share targets show no screen, only a short toast. -->
     <style name="Theme.Transparent" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>

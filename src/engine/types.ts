@@ -99,6 +99,8 @@ export interface Engine {
   updateEngines(force?: boolean): Promise<EngineStatus & { changed: boolean }>;
   login(o: { site: string; url: string; cookieUrls: string[]; title: string }): Promise<{ saved: boolean }>;
   logout(o: { site: string; cookieUrls: string[] }): Promise<void>;
+  /** A login made in the browser is kept for downloads (and forgotten once it ends). True: logged in. */
+  checkLogin(o: { site: string; cookieUrls: string[] }): Promise<boolean>;
   sessions(): Promise<string[]>;
   downloadUpdate(o: { url: string; fileName: string }): Promise<void>;
   canInstall(): Promise<boolean>;

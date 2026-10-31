@@ -106,6 +106,8 @@ class Job(
     var preview: String? = null,
     /** Made from a saved file (vocal remover): {kind, source: {id, index}, keep, as, bitrate}. */
     val edit: JSONObject? = null,
+    /** Found in the browser: {referer, userAgent, cookieUrls, private} go with the download. */
+    val headers: JSONObject? = null,
 ) {
     val template: Template get() = if (usedFallback && fallback != null) fallback else main
 
@@ -158,6 +160,7 @@ class Job(
         .put("usedFallback", usedFallback)
         .put("healed", healed)
         .put("titleFromFile", titleFromFile)
+        .apply { headers?.let { put("headers", it) } }
 
     companion object {
         fun fromStore(o: JSONObject): Job = Job(
@@ -188,6 +191,7 @@ class Job(
             titleFromFile = o.optBoolean("titleFromFile"),
             preview = o.str("preview"),
             edit = o.optJSONObject("edit"),
+            headers = o.optJSONObject("headers"),
         )
 
         /** A JobRequest from the UI (src/core/types.ts) or a 1-tap share. */
@@ -209,6 +213,7 @@ class Job(
                 expectedBytes = r.optLong("expectedBytes"),
                 titleFromFile = title == url || r.optBoolean("titleFromFile"),
                 edit = r.optJSONObject("edit"),
+                headers = r.optJSONObject("headers"),
             )
         }
     }

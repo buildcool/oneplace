@@ -1,0 +1,58 @@
+{
+  "v": 1,
+  "blockPaths": [
+    {
+      "host": "youtube.com",
+      "path": "^/(pagead/|ptracking|api/stats/ads|get_midroll_|youtubei/v1/log_event)"
+    },
+    {
+      "host": "google.com",
+      "path": "^/(pagead/|adsense/)"
+    }
+  ],
+  "hide": {
+    "youtube.com": [
+      "ytm-promoted-sparkles-web-renderer",
+      "ytm-promoted-video-renderer",
+      "ytm-companion-ad-renderer",
+      "ytm-ad-slot-renderer",
+      "ad-slot-renderer",
+      "ytm-statement-banner-renderer",
+      "ytm-mealbar-promo-renderer",
+      "ytm-paid-content-overlay-renderer",
+      "ytm-in-feed-ad-layout-renderer",
+      "ytd-ad-slot-renderer",
+      "ytd-banner-promo-renderer",
+      "ytd-statement-banner-renderer",
+      "#masthead-ad",
+      ".ytp-ad-module",
+      ".ytp-ad-overlay-container"
+    ],
+    "music.youtube.com": [
+      "ytmusic-mealbar-promo-renderer",
+      "ytmusic-statement-banner-renderer"
+    ]
+  },
+  "links": {
+    "instagram.com": "a[href*='/reel/'], a[href*='/p/']",
+    "x.com": "a[href*='/status/']",
+    "twitter.com": "a[href*='/status/']",
+    "facebook.com": "a[href*='/reel/'], a[href*='/videos/'], a[href*='/watch/']",
+    "tiktok.com": "a[href*='/video/']",
+    "reddit.com": "a[href*='/comments/']",
+    "pinterest.com": "a[href*='/pin/']",
+    "threads.net": "a[href*='/post/']",
+    "threads.com": "a[href*='/post/']"
+  },
+  "prune": {
+    "youtube.com": [
+      "playerResponse.adPlacements",
+      "playerResponse.playerAds",
+      "playerResponse.adSlots",
+      "adPlacements",
+      "playerAds",
+      "adSlots"
+    ]
+  },
+  "ua": {}
+}

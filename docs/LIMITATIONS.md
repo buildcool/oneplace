@@ -62,3 +62,10 @@ From the plan (docs/PLAN.md §9), kept up to date as we learn.
   - **Speed:** about 1 minute for a 4-minute song on a mid-range phone.
   - **Not used:** larger models (UVR MDX-Net) separate better but are ~9× slower, so they are too slow for phones.
 - **Files deleted in Gallery** or a file manager are noticed when the Library opens, and shown as "Deleted from phone".
+- **In-app browser:**
+  - Google doesn't allow signing in inside apps' web views, so YouTube in the browser is signed out unless you logged in through More → Site logins.
+  - A file a page builds by itself (a `blob:` download) can't be saved from the browser.
+  - Uploading files from the browser (a site's "choose file" button) isn't supported yet.
+  - Ad blocking works on the requests pages make; ads drawn by a site's own code (some of YouTube's) are hidden with site rules as well as possible.
+  - Streams locked with DRM are shown as protected and never downloaded.
+  - Private tabs need a recent Android System WebView; on older ones the option is hidden.

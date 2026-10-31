@@ -1,5 +1,23 @@
 ## What's new
 
+- **A browser inside OnePlace** (new **Browse** tab):
+  - Open YouTube, YouTube Music, Instagram, Facebook, X and every other site OnePlace supports, or search the web, without leaving the app.
+  - **Download what you see:** when a page has something to save, the ⬇ button in the bar lights up (and says "Download reel" for a moment). Tap it for:
+    - **This page:** the post, reel, video or song itself, in your usual quality or as MP3, in one tap (or "More" for every quality).
+    - **On screen now:** the reel or video you are looking at while scrolling a feed.
+    - **Videos, songs and photos** the page loads, with quality, length and size, including streams other apps miss (m3u8/DASH). "Download all photos" grabs a whole page.
+    - Locked streams (DRM) are marked and never offered.
+  - **Built for one hand:** the address bar sits at the bottom (top is a setting) and shrinks while you read. Swipe it sideways to change tab, swipe up for all tabs, hold it to copy the link. Pull down at the top of a page to reload.
+  - **Ads and trackers blocked** (HaGeZi's list, updated weekly), with a count on each page and a switch per site.
+  - **Tabs** with pictures, **private tabs** that forget everything when closed, history, bookmarks, find in page, desktop site, dark pages.
+  - **Long-press** a link, photo or video for open in new tab, copy, share or download.
+  - Files a site offers for download come to OnePlace's downloads, with the site's login.
+  - Logging in to a site in the browser also lets downloads use that login.
+  - Pages never open other apps by themselves; OnePlace asks first.
+  - When a shared link can't be read, the download sheet offers **"Find it on the page"**.
+
+### From v1.0.16
+
 - **Video player gestures feel calmer and quicker:**
   - **Brightness and volume** now show as slim, see-through bars at the screen edge where your finger is (left for brightness, right for volume), not a box in the middle of the video. A small tick when you reach the top or the bottom.
   - **Seeking shows the picture as you go.** When you drag the seek bar or swipe across the video, the video follows your finger, so you land exactly where you want. A small pill at the top shows how far you moved.

@@ -26,6 +26,8 @@ interface Props {
   onDownloads: () => void;
   onLibrary: () => void;
   onSites: () => void;
+  /** Open a site in OnePlace's browser. */
+  onOpenSite: (url: string) => void;
   onOpenJob: (job: Job) => void;
   onRetryEngine: () => void;
 }
@@ -206,7 +208,7 @@ export function Home(p: Props) {
           {HOME_SITES.map((id) => {
             const s = siteInfo(id);
             return (
-              <button key={id} type="button" className="site" onClick={() => s.home && openExternal(s.home)}>
+              <button key={id} type="button" className="site" onClick={() => s.home && p.onOpenSite(s.home)}>
                 <SiteAvatar site={id} />
                 <span>{s.name.replace(' (Twitter)', '')}</span>
               </button>

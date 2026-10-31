@@ -48,6 +48,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Bundle the browser's ad block list
+        run: node scripts/build-adblock.ts
       - run: npm run cap -- sync android
 
       - name: Bundle gallery-dl into the APK

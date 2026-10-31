@@ -25,16 +25,18 @@ import { JobMenu } from './ui/JobMenu.tsx';
 import { Library } from './ui/Library.tsx';
 import { Onboarding } from './ui/Onboarding.tsx';
 import { AboutPage, SitesPage, TestPage } from './ui/Pages.tsx';
+import { Browse, type BrowseRequest } from './ui/browser/Browse.tsx';
+import { historyBus } from './core/browser.ts';
+import { browser } from './engine/browser.ts';
 import { Settings as SettingsScreen, type Page } from './ui/Settings.tsx';
 import { UpdateSheet } from './ui/UpdateSheet.tsx';
-import { openExternal } from './ui/report.ts';
 import { ImageViewer } from './ui/viewer/ImageViewer.tsx';
 import { InfoSheet, ItemMenu, KaraokeSheet } from './ui/viewer/ItemSheets.tsx';
 import { MiniPlayer, NowPlaying } from './ui/viewer/NowPlaying.tsx';
 import { counterpart, toPlayItem } from './ui/viewer/play.ts';
 import { VideoPlayer } from './ui/viewer/VideoPlayer.tsx';
 
-type Tab = 'home' | 'downloads' | 'library' | 'more';
+type Tab = 'home' | 'browse' | 'downloads' | 'library' | 'more';
 const native = Capacitor.isNativePlatform();
 /** Pixels rarely kill background work; every other maker (Xiaomi, Oppo, Vivo, Realme, Samsung, Lava…) may. */
 const PIXEL = /^google$/i;
@@ -109,6 +111,9 @@ export default function App() {
   const [karaokeStatus, setKaraokeStatus] = useState<KaraokeStatus>();
   const [positions, setPositions] = useState<Positions>(() => loadPositions());
   const [openId, setOpenId] = useState<string>();
+  // In-app browser: a page fills the screen (no bottom bar), and links other screens ask it to open.
+  const [browsePage, setBrowsePage] = useState(false);
+  const [browseReq, setBrowseReq] = useState<BrowseRequest>();
 
   const say = useCallback((text: string, action?: { label: string; run: () => void }) => setToast({ text, action }), []);
   useEffect(() => {
@@ -120,6 +125,15 @@ export default function App() {
   const openLink = useCallback((text: string) => {
     setSheetInput(text);
     setMenuJob(undefined);
+  }, []);
+
+  /** Show a page in OnePlace's browser ([finder]: open its content finder once loaded). */
+  const openInBrowser = useCallback((url: string, finder = false) => {
+    setPage(undefined);
+    setViewer(undefined);
+    setNpOpen(false);
+    setTab('browse');
+    setBrowseReq({ url, finder, at: Date.now() });
   }, []);
 
   // Theme: light/dark/system + AMOLED, mirrored to the status/navigation bar icons.
@@ -534,6 +548,7 @@ export default function App() {
 
   const nav: { id: Tab; icon: IconName; label: string; badge?: number }[] = [
     { id: 'home', icon: 'home', label: t('tab.home') },
+    { id: 'browse', icon: 'globe', label: t('tab.browse') },
     { id: 'downloads', icon: 'list', label: t('tab.downloads'), badge: activeCount },
     { id: 'library', icon: 'grid', label: t('tab.library') },
     { id: 'more', icon: 'sliders', label: t('tab.more') },
@@ -571,6 +586,7 @@ export default function App() {
           setTab('more');
           setPage('sites');
         }}
+        onOpenSite={(url) => openInBrowser(url)}
         onOpenJob={openJob}
         onRetryEngine={() =>
           engine
@@ -580,6 +596,7 @@ export default function App() {
         }
       />
     );
+  else if (tab === 'browse') screen = null;
   else if (tab === 'downloads')
     screen = (
       <Downloads
@@ -650,17 +667,65 @@ export default function App() {
           await engine.deleteKaraoke().catch(() => {});
           say(t('set.karaokeDeleted'));
         }}
+        onClearBrowsing={async (o) => {
+          if (o.history) historyBus.clear();
+          if (o.cookies || o.cache) await browser.clearData({ cookies: o.cookies, cache: o.cache }).catch(() => {});
+          if (o.cookies) setSessions(await engine.sessions().catch(() => []));
+          say(t('cd.done'));
+        }}
         onPage={setPage}
       />
     );
+
+  const browseShown = tab === 'browse' && !page && settings.onboarded;
+  const pageMode = browseShown && browsePage;
+  const fullLayer = !!viewer || (npOpen && !ps.idle) || !settings.onboarded;
+  // Over a browser page, messages appear inside its bar instead of over the page.
+  const toastInBar = pageMode && !fullLayer;
 
   return (
     <LangContext.Provider value={settings.lang}>
       <div className={`app${showMini ? ' with-mini' : ''}`}>{screen}</div>
 
+      {settings.onboarded ? (
+        <Browse
+          shown={browseShown}
+          covered={sheetInput !== undefined || !!menuJob || (showUpdate && !!appUpdate) || !!itemMenu || !!info || !!karaoke}
+          hidden={fullLayer}
+          settings={settings}
+          jobs={jobs}
+          sessions={sessions}
+          clip={clip}
+          toast={toastInBar ? toast : undefined}
+          miniShown={showMini}
+          adblockOff={remote.disabled.includes('browserAdblock')}
+          request={browseReq}
+          onRequestDone={() => setBrowseReq(undefined)}
+          onPageMode={setBrowsePage}
+          onLink={openLink}
+          onAdd={(reqs) => {
+            void Promise.all(reqs.map((r) => engine.enqueue(r).catch(() => undefined))).then((list) => {
+              const ok = list.filter((j): j is Job => !!j);
+              ok.forEach((j) => setJobs((l) => upsert(l, j)));
+              if (ok.length) added(undefined, ok.length);
+              else say(t('err.unknown'));
+            });
+          }}
+          onDownloads={() => setTab('downloads')}
+          onSettings={() => {
+            setPage(undefined);
+            setTab('more');
+          }}
+          onSessions={() => void engine.sessions().then(setSessions).catch(() => {})}
+          onToastDone={() => setToast(undefined)}
+          onCopy={(text) => void copyLink(text)}
+          say={say}
+        />
+      ) : null}
+
       {showMini ? <MiniPlayer cur={current} onOpen={openNowPlaying} /> : null}
 
-      <nav className="nav" aria-label="Main">
+      <nav className={`nav${pageMode ? ' hidden' : ''}`} aria-label="Main">
         {nav.map((n) => (
           <button
             key={n.id}
@@ -692,6 +757,10 @@ export default function App() {
           onAdded={added}
           onLogin={login}
           onError={(text) => say(text)}
+          onFindOnPage={(url) => {
+            setSheetInput(undefined);
+            openInBrowser(url, true);
+          }}
         />
       ) : null}
 
@@ -771,17 +840,17 @@ export default function App() {
           onKaraoke={askKaraoke}
           onInfo={setInfo}
           onSwap={swap}
-          onSource={(it) => openExternal(it.url)}
+          onSource={(it) => openInBrowser(it.url)}
           onCopyLink={(it) => void copyLink(it.url)}
           onDelete={(it) => void deleteItems([it])}
         />
       ) : null}
 
-      {info ? <InfoSheet item={info} onClose={() => setInfo(undefined)} onSource={(it) => openExternal(it.url)} /> : null}
+      {info ? <InfoSheet item={info} onClose={() => setInfo(undefined)} onSource={(it) => openInBrowser(it.url)} /> : null}
 
       {karaoke ? <KaraokeSheet item={karaoke} status={karaokeStatus} onClose={() => setKaraoke(undefined)} onStart={(keep, as) => void startKaraoke(karaoke, keep, as)} /> : null}
 
-      {toast ? (
+      {toast && !toastInBar ? (
         <div className={`toast${showMini ? ' above-mini' : ''}`} role="status">
           <span className="grow">{toast.text}</span>
           {toast.action ? (

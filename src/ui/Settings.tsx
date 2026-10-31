@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ENGINES, type SearchEngine } from '../core/browser.ts';
 import { bytes } from '../core/format.ts';
 import type { Settings as S, VideoQuality } from '../core/settings.ts';
 import { SITES } from '../core/sites.ts';
@@ -8,7 +9,7 @@ import type { EngineStatus } from '../engine/index.ts';
 import type { KaraokeStatus } from '../engine/types.ts';
 import { LANGS, useT } from '../i18n.ts';
 import { Icon } from './Icon.tsx';
-import { Row, SectionTitle, Seg, SiteAvatar, SwitchRow } from './common.tsx';
+import { Row, SectionTitle, Seg, Sheet, SiteAvatar, SwitchRow } from './common.tsx';
 import { openExternal, reportUrl } from './report.ts';
 
 export type Page = 'sites' | 'about' | 'test';
@@ -33,6 +34,7 @@ interface Props {
   pipOk: boolean;
   onKaraokeStatus: () => Promise<KaraokeStatus>;
   onKaraokeDelete: () => Promise<void>;
+  onClearBrowsing: (o: { history: boolean; cookies: boolean; cache: boolean }) => Promise<void>;
   onPage: (p: Page) => void;
 }
 
@@ -45,6 +47,7 @@ export function Settings(p: Props) {
   const [appBusy, setAppBusy] = useState(false);
   const [tileMsg, setTileMsg] = useState<string>();
   const [kar, setKar] = useState<KaraokeStatus>();
+  const [clearing, setClearing] = useState<{ history: boolean; cookies: boolean; cache: boolean }>();
   const qualities: VideoQuality[] = ['best', 2160, 1440, 1080, 720, 480, 360];
   const { onKaraokeStatus } = p;
   useEffect(() => {
@@ -137,6 +140,43 @@ export function Settings(p: Props) {
             sub={tileMsg ?? t('set.tileSub')}
             onClick={async () => setTileMsg((await p.onAddTile()) ? t('set.tileAdded') : t('set.tileManual'))}
           />
+        </div>
+
+        <SectionTitle>{t('set.browser')}</SectionTitle>
+        <div className="card group">
+          <div className="row stack">
+            <span className="title">{t('set.searchEngine')}</span>
+            <Seg value={s.searchEngine} options={(Object.keys(ENGINES) as SearchEngine[]).map((id) => ({ id, label: ENGINES[id].name }))} onChange={(searchEngine) => p.update({ searchEngine })} />
+          </div>
+          <SwitchRow icon="search" title={t('set.searchSuggest')} sub={t('set.searchSuggestSub')} on={s.searchSuggest} onChange={(searchSuggest) => p.update({ searchSuggest })} />
+          <div className="row stack">
+            <span className="title">{t('set.adblock')}</span>
+            <Seg
+              value={s.adblock}
+              options={[
+                { id: 'standard', label: t('set.adStandard') },
+                { id: 'strong', label: t('set.adStrong') },
+                { id: 'off', label: t('common.off') },
+              ]}
+              onChange={(adblock) => p.update({ adblock })}
+            />
+            <span className="sub">{t('set.adblockSub')}</span>
+          </div>
+          <div className="row stack">
+            <span className="title">{t('set.barPos')}</span>
+            <Seg
+              value={s.barTop ? 'top' : 'bottom'}
+              options={[
+                { id: 'bottom', label: t('set.barBottom') },
+                { id: 'top', label: t('set.barTop') },
+              ]}
+              onChange={(v) => p.update({ barTop: v === 'top' })}
+            />
+          </div>
+          <SwitchRow icon="down" title={t('set.hideBars')} on={s.hideBars} onChange={(hideBars) => p.update({ hideBars })} />
+          <SwitchRow icon="moon" title={t('set.darkPages')} on={s.darkPages} onChange={(darkPages) => p.update({ darkPages })} />
+          <SwitchRow icon="shield" title={t('set.thirdParty')} sub={t('set.thirdPartySub')} on={!s.thirdPartyCookies} onChange={(v) => p.update({ thirdPartyCookies: !v })} />
+          <Row icon="trash" title={t('set.clearData')} onClick={() => setClearing({ history: true, cookies: false, cache: true })} />
         </div>
 
         <SectionTitle>{t('set.player')}</SectionTitle>
@@ -303,6 +343,34 @@ export function Settings(p: Props) {
           {p.status?.official ? ` · ${t('about.official')} ✓` : ''}
         </p>
       </main>
+
+      {clearing ? (
+        <Sheet
+          label={t('set.clearData')}
+          onClose={() => setClearing(undefined)}
+          foot={
+            <button
+              type="button"
+              className="btn block danger"
+              disabled={!clearing.history && !clearing.cookies && !clearing.cache}
+              onClick={() => {
+                const o = clearing;
+                setClearing(undefined);
+                void p.onClearBrowsing(o);
+              }}
+            >
+              <Icon name="trash" size={18} /> {t('cd.go')}
+            </button>
+          }
+        >
+          <h3>{t('set.clearData')}</h3>
+          <div className="card group">
+            <SwitchRow icon="clock" title={t('br.history')} on={clearing.history} onChange={(history) => setClearing({ ...clearing, history })} />
+            <SwitchRow icon="user" title={t('cd.cookies')} sub={t('cd.cookiesSub')} on={clearing.cookies} onChange={(cookies) => setClearing({ ...clearing, cookies })} />
+            <SwitchRow icon="image" title={t('cd.cache')} on={clearing.cache} onChange={(cache) => setClearing({ ...clearing, cache })} />
+          </div>
+        </Sheet>
+      ) : null}
     </>
   );
 }

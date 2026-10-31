@@ -191,4 +191,15 @@ export interface JobRequest extends JobTemplate {
   /** The title is a placeholder (download started before the link was read): use the file's name. */
   titleFromFile?: boolean;
   edit?: EditSpec;
+  /** Found in the in-app browser: the page's address and user agent, and whose cookies to send. */
+  headers?: RequestHeaders;
+}
+
+export interface RequestHeaders {
+  referer?: string;
+  userAgent?: string;
+  /** Cookies the browser has for these addresses go with the download. */
+  cookieUrls?: string[];
+  /** From a private tab (its cookies live in the private profile). */
+  private?: boolean;
 }

@@ -314,6 +314,14 @@ class EnginePlugin : Plugin() {
         call.resolve(JSObject().put("saved", Cookies.export(app, site, urls)))
     }
 
+    /** A login made in the browser: kept for downloads like an in-app login (and forgotten when it ends). */
+    @PluginMethod
+    fun checkLogin(call: PluginCall) {
+        val site = call.getString("site") ?: return call.reject("site missing")
+        val urls = call.getArray("cookieUrls")?.toList<String>() ?: emptyList()
+        bridge.executeOnMainThread { call.resolve(JSObject().put("saved", Cookies.export(app, site, urls))) }
+    }
+
     @PluginMethod
     fun logout(call: PluginCall) {
         val site = call.getString("site") ?: return call.reject("site missing")

@@ -1,6 +1,7 @@
 import { galleryArgs, ytdlpArgs } from './args.ts';
 import { KIND_LABEL, enginesFor, siteInfo } from './sites.ts';
 import { previewThumb } from './thumbs.ts';
+import type { SearchEngine } from './browser.ts';
 import type { SortKey } from './media.ts';
 import type { AudioFormat, DownloadSpec, EditSpec, EngineId, Job, JobRequest, JobTemplate, Link, LinkKind, Mode } from './types.ts';
 
@@ -40,6 +41,18 @@ export interface Settings {
   /** Start videos and songs where you stopped. */
   resume: boolean;
   libSort: SortKey;
+  // Browser
+  searchEngine: SearchEngine;
+  /** Ask the search engine for suggestions while typing. */
+  searchSuggest: boolean;
+  /** Address bar at the top instead of the bottom. */
+  barTop: boolean;
+  /** The bar shrinks while you scroll down a page. */
+  hideBars: boolean;
+  adblock: 'standard' | 'strong' | 'off';
+  /** Pages follow the app's dark theme (sites' own dark mode, else WebView darkens them). */
+  darkPages: boolean;
+  thirdPartyCookies: boolean;
   lastVideoKey?: string;
   lastAudioKey?: string;
   skippedBuild?: number;
@@ -71,6 +84,13 @@ export const DEFAULTS: Settings = {
   leaveVideo: 'pip',
   resume: true,
   libSort: 'new',
+  searchEngine: 'google',
+  searchSuggest: true,
+  barTop: false,
+  hideBars: true,
+  adblock: 'standard',
+  darkPages: true,
+  thirdPartyCookies: false,
   onboarded: false,
 };
 

@@ -35,6 +35,8 @@ interface Props {
   onAdded: (job: Job | undefined, count?: number) => void;
   onLogin: (site: string) => Promise<void>;
   onError: (text: string) => void;
+  /** Open the link's page in the browser with its content finder (when the engines can't read it). */
+  onFindOnPage?: (url: string) => void;
 }
 
 const VAGUE = new Set(['unknown', 'novideo', 'unsupported']);
@@ -46,7 +48,7 @@ export function DownloadSheet(props: Props) {
   return <SingleSheet {...props} url={urls[0]} />;
 }
 
-function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded, onLogin, onError }: Props & { url?: string }) {
+function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded, onLogin, onError, onFindOnPage }: Props & { url?: string }) {
   const t = useT();
   const [phase, setPhase] = useState<'resolving' | 'reading' | 'ready' | 'error'>('reading');
   const [step, setStep] = useState<Key>('sheet.reading');
@@ -340,6 +342,11 @@ function SingleSheet({ url, settings, update, status, sessions, onClose, onAdded
           {url && err.ex.fix !== 'retry' && err.ex.code !== 'drm' ? (
             <button type="button" className="btn block tonal" onClick={() => setAttempt((a) => a + 1)}>
               <Icon name="refresh" size={18} /> {t('fix.retry')}
+            </button>
+          ) : null}
+          {url && onFindOnPage && err.ex.code !== 'drm' && !drm ? (
+            <button type="button" className="btn block ghost" onClick={() => onFindOnPage(link?.url ?? url)}>
+              <Icon name="globe" size={18} /> {t('sheet.findOnPage')}
             </button>
           ) : null}
         </div>

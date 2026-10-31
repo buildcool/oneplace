@@ -5,7 +5,10 @@ import com.yausername.aria2c.Aria2c
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import io.github.buildcool.oneplace.Config
+import io.github.buildcool.oneplace.browser.BrowserLayer
 import io.github.buildcool.oneplace.login.Cookies
+import io.github.buildcool.oneplace.queue.Job
+import io.github.buildcool.oneplace.queue.strings
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -145,6 +148,21 @@ object Engines {
 
     fun cookieArgs(ctx: Context, site: String): List<String> =
         Cookies.file(ctx, site)?.let { listOf("--cookies", it.absolutePath) } ?: emptyList()
+
+    /**
+     * A file found in the browser: the page's address, the browser's user agent and the browser's cookies
+     * for the page and the file go along (in place of the site's saved login). Empty for other downloads.
+     */
+    fun browserArgs(job: Job, dir: File): List<String>? {
+        val h = job.headers ?: return null
+        val out = mutableListOf<String>()
+        h.optString("referer").takeIf { it.startsWith("http") }?.let { out += listOf("--referer", it) }
+        h.optString("userAgent").takeIf { it.isNotBlank() }?.let { out += listOf("--user-agent", it) }
+        val priv = h.optBoolean("private")
+        Cookies.forUrls(h.optJSONArray("cookieUrls").strings(), File(dir, ".cookies.txt")) { u -> BrowserLayer.cookieFor(u, priv) }
+            ?.let { out += listOf("--cookies", it.absolutePath) }
+        return out
+    }
 
     /** Run an engine in "list only" mode (yt-dlp -J, gallery-dl -j) and return its JSON. */
     suspend fun info(ctx: Context, url: String, engine: String, args: List<String>, site: String): JSONObject {

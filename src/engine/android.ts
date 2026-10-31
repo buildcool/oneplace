@@ -29,6 +29,7 @@ interface EnginePlugin {
   updateEngines(o: { force: boolean }): Promise<EngineStatus & { changed: boolean }>;
   login(o: { site: string; url: string; cookieUrls: string[]; title: string }): Promise<{ saved: boolean }>;
   logout(o: { site: string; cookieUrls: string[] }): Promise<void>;
+  checkLogin(o: { site: string; cookieUrls: string[] }): Promise<{ saved: boolean }>;
   sessions(): Promise<{ sites: string[] }>;
   downloadUpdate(o: { url: string; fileName: string }): Promise<void>;
   canInstall(): Promise<{ value: boolean }>;
@@ -86,6 +87,7 @@ export const androidEngine: Engine = {
   updateEngines: (force = false) => P.updateEngines({ force }),
   login: (o) => P.login(o),
   logout: (o) => P.logout(o),
+  checkLogin: async (o) => (await P.checkLogin(o)).saved,
   sessions: async () => (await P.sessions()).sites,
   downloadUpdate: (o) => P.downloadUpdate(o),
   canInstall: async () => (await P.canInstall()).value,
